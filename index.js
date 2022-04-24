@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const app = express();
 
@@ -7,6 +9,18 @@ const routers = require("./src/routes");
 
 app.use(express.json());
 app.use(cors());
+
+// Database Connection
+const connection = require("./src/config");
+connection.connect((error) => {
+  if (error) {
+    console.log("Database connection error: ", error);
+  }
+
+  console.log(
+    `Database connection is established at ID: ${connection.threadId}`
+  );
+});
 
 app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 
