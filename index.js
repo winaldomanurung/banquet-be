@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const bearerToken = require("express-bearer-token");
 const dotenv = require("dotenv");
 dotenv.config();
 
@@ -8,7 +9,8 @@ const app = express();
 const routers = require("./src/routes");
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: "http://localhost:3000", exposedHeaders: "token" }));
+app.use(bearerToken());
 
 // Database Connection
 const connection = require("./src/config");
