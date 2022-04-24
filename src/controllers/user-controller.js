@@ -30,7 +30,6 @@ module.exports.register = async (req, res) => {
     // 3. Validasi apakah email dan username unique
     const CHECK_USER = `SELECT id FROM users WHERE username = ? OR email = ?`;
     const [USER] = await database.execute(CHECK_USER, [username, email]);
-    console.log("sebelum");
     if (USER.length) {
       const err = new Error("Error");
       console.log(err);
@@ -39,7 +38,21 @@ module.exports.register = async (req, res) => {
 
       throw err;
     }
-    console.log("sesudah");
+
+    // 4. Create user ID
+    const uid = uuid.v4();
+
+    // 5. Password hashing
+    // reserved
+
+    // 6. Store data user yang melakukan registrasi ke dalam database
+    const INSERT_USER = `INSERT INTO users (userId, username, email, password) VALUES(${database.escape(
+      uid
+    )}, ${database.escape(username)}, ${database.escape(
+      email
+    )}, ${database.escape(password)});
+        `;
+    const [INFO] = await database.execute(INSERT_USER);
 
     res.status(200).send("<h1>List of users</h1>");
   } catch (err) {
