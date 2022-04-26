@@ -105,7 +105,7 @@ module.exports.register = async (req, res) => {
 
 module.exports.verification = async (req, res) => {
   // req.user didapat dari proses decoding di authToken.js dimana token diubah kembali menjadi data awalnya
-  console.log(req.user);
+  console.log("req.user : ", req.user);
   try {
     let UPDATE_USER_VERIFICATION = `UPDATE users SET isVerified=1 WHERE userId=${database.escape(
       req.user.material1
@@ -114,6 +114,50 @@ module.exports.verification = async (req, res) => {
     const [VERIFIED_USER] = await database.execute(UPDATE_USER_VERIFICATION);
     res.status(200).send({
       message: "Account verification success.",
+    });
+  } catch (err) {
+    res.status(err.statusCode).send(err);
+  }
+};
+
+module.exports.login = async (req, res) => {
+  const { credential, password } = req.body;
+  console.log(credential, password);
+  try {
+    let FIND_USER = `SELECT * FROM users WHERE (username=${database.escape(
+      credential
+    )} AND password=${database.escape(password)}) OR (email=${database.escape(
+      credential
+    )} AND password=${database.escape(password)});`;
+    console.log(FIND_USER);
+    const [USER] = await database.execute(FIND_USER);
+    if (!USER.length) {
+      const err = new Error("Error");
+      err.statusCode = 500;
+      err.message = error.details[0].message;
+      console.log(error.details);
+      throw err;
+    }
+    //bahan token
+    let material1 = USER[0].userId;
+    let material2 = USER[0].username;
+    let material3 = USER[0].email;
+    let material4 = USER[0].isVerified;
+
+    //create token
+    let token = createToken({ material1, material2, material3, material4 });
+    console.log(token);
+
+    if (material4 != 1) {
+      res.status(400).send({
+        message: "Your account is not verified!",
+      });
+    }
+
+    res.status(200).send({
+      dataLogin: USER[0],
+      token,
+      message: "Login success",
     });
   } catch (err) {
     res.status(err.statusCode).send(err);
