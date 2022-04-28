@@ -1,11 +1,42 @@
 const uuid = require("uuid");
 const database = require("../config").promise();
-const { registerUserSchema } = require("../helpers/validation-schema");
+const {
+  registerUserSchema,
+  patchStudentSchema,
+} = require("../helpers/validation-schema");
 const { createToken } = require("../helpers/createToken");
 const transporter = require("../helpers/nodemailer");
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
+};
+
+module.exports.getById = async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const GET_USER_BY_ID = `
+          SELECT * 
+          FROM users 
+          WHERE userId = ?; 
+      `;
+    const [USER] = await database.execute(GET_USER_BY_ID, [userId]);
+
+    // validate
+    if (!USER.length) {
+      const err = new Error("Error");
+      err.statusCode = 500;
+      err.message = "ID not found";
+      throw err;
+    }
+
+    // create respond
+    res.status(200).send({
+      data: USER,
+      message: "OK",
+    });
+  } catch (err) {
+    res.status(err.statusCode).send(err.message);
+  }
 };
 
 module.exports.register = async (req, res) => {
@@ -121,6 +152,7 @@ module.exports.verification = async (req, res) => {
 };
 
 module.exports.login = async (req, res) => {
+  let err;
   const { credential, password } = req.body;
   console.log(credential, password);
   try {
@@ -132,12 +164,13 @@ module.exports.login = async (req, res) => {
     console.log(FIND_USER);
     const [USER] = await database.execute(FIND_USER);
     if (!USER.length) {
-      const err = new Error("Error");
+      err = new Error("Error");
       err.statusCode = 500;
-      err.message = error.details[0].message;
-      console.log(error.details);
+      err.message = "Gada bos";
       throw err;
     }
+    console.log(USER);
+
     //bahan token
     let material1 = USER[0].userId;
     let material2 = USER[0].username;
@@ -147,12 +180,16 @@ module.exports.login = async (req, res) => {
     //create token
     let token = createToken({ material1, material2, material3, material4 });
     console.log(token);
+    console.log(material4);
 
     if (material4 != 1) {
-      res.status(400).send({
-        message: "Your account is not verified!",
-      });
+      err = new Error("Error");
+      err.statusCode = 400;
+      err.message = "Your account is not verified!";
+      throw err;
     }
+
+    console.log("account is verified");
 
     res.status(200).send({
       dataLogin: USER[0],
@@ -160,6 +197,77 @@ module.exports.login = async (req, res) => {
       message: "Login success",
     });
   } catch (err) {
-    res.status(err.statusCode).send(err);
+    res.status(err.statusCode).send(err.message);
+  }
+};
+
+module.exports.edit = async (req, res) => {
+  let err;
+  const userId = req.params.userId;
+  const body = req.body;
+  console.log(userId, body);
+  try {
+    // 1. Check data apakah data user ada di dalam database
+    const FIND_USER = `SELECT id FROM users WHERE userId = ${database.escape(
+      userId
+    )};`;
+
+    console.log(FIND_USER);
+    const [USER] = await database.execute(FIND_USER);
+    if (!USER.length) {
+      err = new Error("Error");
+      err.statusCode = 500;
+      err.message = "Gada user bos";
+      throw err;
+    }
+    console.log(USER);
+
+    // 2. Check apakah body memiliki inputan
+    const isEmpty = !Object.keys(body).length;
+    if (isEmpty) {
+      err = new Error("Error");
+      err.statusCode = 500;
+      err.message = "Gada body bos";
+      throw err;
+    }
+
+    // 3. Gunakan Joi untuk validasi data dari body
+    const { error } = patchStudentSchema.validate(body);
+    if (error) {
+      err = new Error("Error");
+      err.statusCode = 500;
+      err.message = error.message;
+      throw err;
+    }
+
+    // 4. Validasi apakah username unique
+    const CHECK_USER = `SELECT id FROM users WHERE username = ?`;
+    const [USER_DATA] = await database.execute(CHECK_USER, [req.body.username]);
+    if (USER_DATA.length) {
+      const err = new Error("Error");
+      console.log(err);
+      err.statusCode = 500;
+      err.message = "Username already exists.";
+
+      throw err;
+    }
+
+    //  5. Buat query untuk edit
+    let query = [];
+    for (let key in body) {
+      query.push(`${key}='${body[key]}' `);
+    }
+    const EDIT_USER = `UPDATE users SET ${query} WHERE userId = ${database.escape(
+      userId
+    )};`;
+    console.log(EDIT_USER);
+    const [EDITED_USER] = await database.execute(EDIT_USER);
+
+    res.status(200).send({
+      dataEdit: EDITED_USER[0],
+      message: "Edit success",
+    });
+  } catch (err) {
+    res.status(err.statusCode).send(err.message);
   }
 };
