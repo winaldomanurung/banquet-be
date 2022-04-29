@@ -262,9 +262,16 @@ module.exports.edit = async (req, res) => {
     )};`;
     console.log(EDIT_USER);
     const [EDITED_USER] = await database.execute(EDIT_USER);
+    console.log(EDITED_USER[0]);
+
+    const FIND_UPDATED_USER = `SELECT * FROM users WHERE userId = ${database.escape(
+      userId
+    )};`;
+    console.log(FIND_UPDATED_USER);
+    const [UPDATED_USER] = await database.execute(FIND_UPDATED_USER);
 
     res.status(200).send({
-      dataEdit: EDITED_USER[0],
+      dataEdit: UPDATED_USER[0],
       message: "Edit success",
     });
   } catch (err) {

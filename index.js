@@ -12,6 +12,8 @@ app.use(express.json());
 app.use(cors({ origin: "http://localhost:3000", exposedHeaders: "token" }));
 app.use(bearerToken());
 
+app.use(express.static("public"));
+
 // Database Connection
 const connection = require("./src/config");
 connection.connect((error) => {
@@ -30,6 +32,7 @@ app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 /* ///// USER /////*/
 /* /////////////// */
 app.use("/users", routers.user_router);
+app.use("/upload", routers.upload_router);
 
 const PORT = 2000;
 app.listen(PORT, () => console.log(`API is connected at PORT: ${PORT}.`));
