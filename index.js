@@ -32,7 +32,7 @@ app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 /* ///// USER /////*/
 /* /////////////// */
 app.use("/users", routers.user_router);
-app.use("/upload", routers.upload_router);
+// app.use("/upload", routers.upload_router);
 
 const PORT = 2000;
 app.listen(PORT, () => console.log(`API is connected at PORT: ${PORT}.`));
