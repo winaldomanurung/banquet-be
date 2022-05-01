@@ -22,3 +22,7 @@ module.exports.loginUserSchema = Joi.object({
   password: Joi.string().min(6).max(13).required(),
   // password : Joi.string().min(6).max(13).pattern(/[!@#$%&*_!]/).required()
 });
+
+module.exports.resetPasswordUserSchema = Joi.object({
+  email: Joi.string().email().required(),
+});

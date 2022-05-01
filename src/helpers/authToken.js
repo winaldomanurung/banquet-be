@@ -5,6 +5,9 @@ const jwt = require("jsonwebtoken");
 module.exports = {
   // Next untuk melanjutkan ke middleware di controller
   auth: (req, res, next) => {
+    console.log(req);
+    console.log(req.token);
+    console.log("Masuk auth");
     console.log(req.token);
     const token = req.token;
     jwt.verify(token, "private123", (err, decode) => {
