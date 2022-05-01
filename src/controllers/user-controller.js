@@ -430,7 +430,7 @@ module.exports.getImage = async (req, res) => {
   }
 };
 
-module.exports.resetPassword = async (req, res) => {
+module.exports.resetPasswordRequest = async (req, res) => {
   const { email } = req.body;
   try {
     // 1. Validasi req.body, apakah sesuai dengan schema Joi
