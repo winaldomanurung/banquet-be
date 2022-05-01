@@ -2,13 +2,15 @@ const uuid = require("uuid");
 const database = require("../config").promise();
 const {
   registerUserSchema,
-  patchStudentSchema,
+  patchUserSchema,
+  loginUserSchema,
 } = require("../helpers/validation-schema");
 const { createToken } = require("../helpers/createToken");
 const transporter = require("../helpers/nodemailer");
 const databaseSync = require("../config");
 const { uploader } = require("../helpers/uploader");
 const fs = require("fs");
+const bcrypt = require("bcrypt");
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
@@ -80,14 +82,19 @@ module.exports.register = async (req, res) => {
     const uid = uuid.v4();
 
     // 5. Password hashing
-    // reserved
+    const salt = await bcrypt.genSalt(10);
+    console.log("salt : ", salt);
+
+    const hashedPassword = await bcrypt.hash(password, salt);
+    console.log("plain : ", password);
+    console.log("hash: ", hashedPassword);
 
     // 6. Store data user yang melakukan registrasi ke dalam database
     const INSERT_USER = `INSERT INTO users (userId, username, email, password) VALUES(${database.escape(
       uid
     )}, ${database.escape(username)}, ${database.escape(
       email
-    )}, ${database.escape(password)});
+    )}, ${database.escape(hashedPassword)});
         `;
     const [INFO] = await database.execute(INSERT_USER);
     // console.log(INFO);
@@ -214,20 +221,40 @@ module.exports.login = async (req, res) => {
   const { credential, password } = req.body;
   console.log(credential, password);
   try {
-    let FIND_USER = `SELECT * FROM users WHERE (username=${database.escape(
+    console.log("masuk try");
+    // 1. Validasi credential dan password berdasarkan schema
+    const { error } = loginUserSchema.validate(req.body);
+    if (error) {
+      err = new Error("Error");
+      err.statusCode = 500;
+      err.message = "Salah format input";
+      throw err;
+    }
+
+    console.log("Pass check 1");
+
+    // 2. Check apakah username atau email exist di dalam database
+    let FIND_USER = `SELECT * FROM users WHERE username=${database.escape(
       credential
-    )} AND password=${database.escape(password)}) OR (email=${database.escape(
-      credential
-    )} AND password=${database.escape(password)});`;
+    )} OR email=${database.escape(credential)};`;
     console.log(FIND_USER);
     const [USER] = await database.execute(FIND_USER);
     if (!USER.length) {
       err = new Error("Error");
       err.statusCode = 500;
-      err.message = "Gada bos";
+      err.message = "Credential tidak ditemukan";
       throw err;
     }
     console.log(USER);
+
+    // 3. Jika user exist, validasi passwordnya
+    const isValid = await bcrypt.compare(password, USER[0].password);
+    if (!isValid) {
+      err = new Error("Error");
+      err.statusCode = 500;
+      err.message = "Password salah";
+      throw err;
+    }
 
     //bahan token
     let material1 = USER[0].userId;
@@ -290,7 +317,7 @@ module.exports.edit = async (req, res) => {
     }
 
     // 3. Gunakan Joi untuk validasi data dari body
-    const { error } = patchStudentSchema.validate(body);
+    const { error } = patchUserSchema.validate(body);
     if (error) {
       err = new Error("Error");
       err.statusCode = 500;

@@ -14,5 +14,6 @@ router.patch("/:userId", user_controller.edit);
 router.post("/:userId/verify", user_controller.sendEmailVerification);
 router.post("/:userId/upload-img", user_controller.uploadImage);
 router.get("/:userId/get-img", user_controller.getImage);
+// router.get("/:userId/logout", user_controller.logout);
 
 module.exports = router;
