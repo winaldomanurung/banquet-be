@@ -2,6 +2,9 @@ const database = require("../config").promise();
 const databaseSync = require("../config");
 const { uploader } = require("../helpers/uploader");
 const fs = require("fs");
+const createError = require("../helpers/createError");
+const createResponse = require("../helpers/createResponse");
+const httpStatus = require("../helpers/httpStatusCode");
 
 module.exports = {
   uploadFile: (req, res) => {
@@ -32,14 +35,37 @@ module.exports = {
           if (err) {
             console.log(err);
             fs.unlinkSync("./public" + filepath);
-            res.status(500).send(err);
+            // res.status(500).send(err);
+            throw new createError(
+              httpStatus.Bad_Request,
+              "Edit failed",
+              "Operation error. Please try again."
+            );
           }
-          res.status(200).send({ message: "Upload file success!" });
+          // res.status(200).send({ message: "Upload file success!" });
+          const response = new createResponse(
+            httpStatus.OK,
+            "Edit profile success",
+            "Upload image success!",
+            "",
+            ""
+          );
+
+          res.status(response.status).send(response);
         });
       });
-    } catch (error) {
-      console.log(error);
-      res.status(500).send(error);
+    } catch (err) {
+      console.log("error : ", err);
+      const isTrusted = err instanceof createError;
+      if (!isTrusted) {
+        err = new createError(
+          httpStatus.Internal_Server_Error,
+          "SQL Script Error",
+          err.sqlMessage
+        );
+        console.log(err);
+      }
+      res.status(err.status).send(err);
     }
   },
   getAlbum: async (req, res) => {
