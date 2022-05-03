@@ -4,8 +4,10 @@ const jwt = require("jsonwebtoken");
 
 module.exports = {
   createToken: (payload) => {
-    return jwt.sign(payload, "private123", {
+    let token = jwt.sign(payload, "private123", {
       expiresIn: "12h",
     });
+    console.log("TOKEN:", token);
+    return token;
   },
 };

@@ -9,7 +9,12 @@ const app = express();
 const routers = require("./src/routes");
 
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:3000", exposedHeaders: "token" }));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    exposedHeaders: ["UID", "Auth-Token"],
+  })
+);
 app.use(bearerToken());
 
 app.use(express.static("public"));

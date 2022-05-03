@@ -15,9 +15,9 @@ module.exports.registerUserSchema = Joi.object({
 });
 
 module.exports.patchUserSchema = Joi.object({
-  fullname: Joi.string().min(3).max(50),
+  fullname: Joi.string().min(3).max(50).allow(null, ""),
   username: Joi.string().min(3).max(20),
-  bio: Joi.string().max(200),
+  bio: Joi.string().max(200).allow(null, ""),
   imageUrl: Joi.string(),
 });
 

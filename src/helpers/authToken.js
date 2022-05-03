@@ -6,10 +6,15 @@ module.exports = {
   // Next untuk melanjutkan ke middleware di controller
   auth: (req, res, next) => {
     console.log(req);
-    console.log(req.token);
+    // console.log(JSON.stringify(req.headers));
+    console.log(req.get("Auth-Token"));
+    // console.log(req.token);
     console.log("Masuk auth");
     console.log(req.token);
-    const token = req.token;
+    console.log("Lewat auth");
+
+    // const token = req.token;
+    const token = req.get("Auth-Token");
     jwt.verify(token, "private123", (err, decode) => {
       if (err) {
         return res.status(401).send("User not auth");

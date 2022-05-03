@@ -15,6 +15,7 @@ const bcrypt = require("bcrypt");
 const createError = require("../helpers/createError");
 const createResponse = require("../helpers/createResponse");
 const httpStatus = require("../helpers/httpStatusCode");
+const JWT = require("jsonwebtoken");
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
@@ -125,13 +126,13 @@ module.exports.register = async (req, res) => {
     console.log("USER_BY_ID: ", USER_BY_ID[0]);
 
     //bahan token
-    let material1 = USER_BY_ID[0].userId;
-    let material2 = USER_BY_ID[0].username;
-    let material3 = USER_BY_ID[0].email;
-    let material4 = USER_BY_ID[0].isVerified;
+    let materialToken = USER_BY_ID[0].userId;
+    // let material2 = USER_BY_ID[0].username;
+    // let material3 = USER_BY_ID[0].email;
+    // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
-    let token = createToken({ material1, material2, material3, material4 });
+    let token = createToken({ materialToken });
     console.log(token);
 
     // 8. Kirim email verification dengan nodemailer
@@ -202,13 +203,13 @@ module.exports.sendEmailVerification = async (req, res) => {
     console.log("USER_BY_ID: ", USER_BY_ID[0]);
 
     //bahan token
-    let material1 = USER_BY_ID[0].userId;
-    let material2 = USER_BY_ID[0].username;
-    let material3 = USER_BY_ID[0].email;
-    let material4 = USER_BY_ID[0].isVerified;
+    let materialToken = USER_BY_ID[0].userId;
+    // let material2 = USER_BY_ID[0].username;
+    // let material3 = USER_BY_ID[0].email;
+    // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
-    let token = createToken({ material1, material2, material3, material4 });
+    let token = createToken({ materialToken });
     console.log(token);
 
     // 2. Kirim email verification dengan nodemailer
@@ -269,10 +270,10 @@ module.exports.sendEmailVerification = async (req, res) => {
 
 module.exports.verification = async (req, res) => {
   // req.user didapat dari proses decoding di authToken.js dimana token diubah kembali menjadi data awalnya
-  console.log("req.user : ", req.user);
+  const { materialToken } = req.user;
   try {
     let UPDATE_USER_VERIFICATION = `UPDATE users SET isVerified=1 WHERE userId=${database.escape(
-      req.user.material1
+      materialToken
     )};`;
     console.log(UPDATE_USER_VERIFICATION);
     const [VERIFIED_USER] = await database.execute(UPDATE_USER_VERIFICATION);
@@ -342,15 +343,14 @@ module.exports.login = async (req, res) => {
     }
 
     //bahan token
-    let material1 = USER[0].userId;
-    let material2 = USER[0].username;
-    let material3 = USER[0].email;
-    let material4 = USER[0].isVerified;
+    let materialToken = USER[0].userId;
+    // let material2 = USER[0].username;
+    // let material3 = USER[0].email;
+    // let material4 = USER[0].isVerified;
 
     //create token
-    let token = createToken({ material1, material2, material3, material4 });
+    let token = createToken({ materialToken });
     console.log(token);
-    console.log(material4);
 
     // if (material4 != 1) {
     //   err = new Error("Error");
@@ -360,6 +360,7 @@ module.exports.login = async (req, res) => {
     // }
 
     console.log("account is verified");
+    delete USER[0].password;
 
     const response = new createResponse(
       httpStatus.OK,
@@ -369,7 +370,10 @@ module.exports.login = async (req, res) => {
       token
     );
 
-    res.status(response.status).send(response);
+    res
+      .header("Auth-Token", `Bearer ${token}`)
+      .status(response.status)
+      .send(response);
 
     // res.status(200).send({
     //   dataLogin: USER[0],
@@ -637,13 +641,13 @@ module.exports.resetPasswordRequest = async (req, res) => {
 
     // 3. Generate Token
     //bahan token
-    let material1 = USER_BY_EMAIL[0].userId;
-    let material2 = USER_BY_EMAIL[0].username;
-    let material3 = USER_BY_EMAIL[0].email;
-    let material4 = USER_BY_EMAIL[0].isVerified;
+    let materialToken = USER_BY_EMAIL[0].userId;
+    // let material2 = USER_BY_EMAIL[0].username;
+    // let material3 = USER_BY_EMAIL[0].email;
+    // let material4 = USER_BY_EMAIL[0].isVerified;
 
     //create token
-    let token = createToken({ material1, material2, material3, material4 });
+    let token = createToken({ materialToken });
     console.log(token);
 
     // 8. Kirim email verification dengan nodemailer
@@ -702,7 +706,7 @@ module.exports.resetPasswordRequest = async (req, res) => {
 
 module.exports.resetPasswordConfirmation = async (req, res) => {
   // req.user didapat dari proses decoding di authToken.js dimana token diubah kembali menjadi data awalnya
-  console.log("req.user : ", req.user);
+  const { materialToken } = req.user;
   const { password } = req.body;
   try {
     // Hash password
@@ -715,7 +719,7 @@ module.exports.resetPasswordConfirmation = async (req, res) => {
 
     let UPDATE_USER_PASSWORD = `UPDATE users SET password=${database.escape(
       hashedPassword
-    )} WHERE userId=${database.escape(req.user.material1)};`;
+    )} WHERE userId=${database.escape(materialToken)};`;
     console.log(UPDATE_USER_PASSWORD);
     const [UPDATED_USER] = await database.execute(UPDATE_USER_PASSWORD);
     console.log(UPDATED_USER[0]);
@@ -724,5 +728,40 @@ module.exports.resetPasswordConfirmation = async (req, res) => {
     });
   } catch (err) {
     res.status(err.statusCode).send(err);
+  }
+};
+
+module.exports.retrieveData = async (req, res) => {
+  console.log("masuk retrieveData");
+  const { materialToken } = req.user;
+  // const uid = req.uid
+  console.log(req.user);
+  try {
+    const GET_USER = `SELECT * FROM users WHERE userId = ?;`;
+    const [USER] = await database.execute(GET_USER, [materialToken]);
+
+    delete USER[0].password;
+
+    const response = new createResponse(
+      httpStatus.OK,
+      "Retrieve data success",
+      "User data is retrieved.",
+      USER[0],
+      ""
+    );
+
+    res.status(response.status).send(response);
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
   }
 };
