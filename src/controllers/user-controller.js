@@ -16,6 +16,7 @@ const createError = require("../helpers/createError");
 const createResponse = require("../helpers/createResponse");
 const httpStatus = require("../helpers/httpStatusCode");
 const JWT = require("jsonwebtoken");
+const otp_generator = require("otp-generator");
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
@@ -31,6 +32,8 @@ module.exports.getById = async (req, res) => {
           WHERE userId = ?; 
       `;
     const [USER] = await database.execute(GET_USER_BY_ID, [userId]);
+
+    delete USER[0].password;
 
     // validate
     if (!USER.length) {
@@ -51,14 +54,11 @@ module.exports.getById = async (req, res) => {
 };
 
 module.exports.register = async (req, res) => {
+  let response;
   const { username, email, password, repeat_password } = req.body;
   try {
     // 1. Validasi password apakah match dengan repeat password
     if (password != repeat_password) {
-      // const err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = "The password doesn't match";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -69,11 +69,6 @@ module.exports.register = async (req, res) => {
     // 2. Validasi req.body, apakah sesuai dengan schema Joi
     const { error } = registerUserSchema.validate(req.body);
     if (error) {
-      // const err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = error.details[0].message;
-      // console.log(error.details);
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -85,12 +80,6 @@ module.exports.register = async (req, res) => {
     const CHECK_USER = `SELECT id FROM users WHERE username = ? OR email = ?`;
     const [USER_DATA] = await database.execute(CHECK_USER, [username, email]);
     if (USER_DATA.length) {
-      // const err = new Error("Error");
-      // console.log(err);
-      // err.statusCode = 500;
-      // err.message = "Email or username already exists.";
-
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -99,7 +88,7 @@ module.exports.register = async (req, res) => {
     }
 
     // 4. Create user ID
-    const uid = uuid.v4();
+    const userId = uuid.v4();
 
     // 5. Password hashing
     const salt = await bcrypt.genSalt(10);
@@ -111,70 +100,162 @@ module.exports.register = async (req, res) => {
 
     // 6. Store data user yang melakukan registrasi ke dalam database
     const INSERT_USER = `INSERT INTO users (userId, username, email, password) VALUES(${database.escape(
-      uid
+      userId
     )}, ${database.escape(username)}, ${database.escape(
       email
     )}, ${database.escape(hashedPassword)});
         `;
-    const [INFO] = await database.execute(INSERT_USER);
+    const [USER_INSERTED] = await database.execute(INSERT_USER);
     // console.log(INFO);
 
-    // 7. Generate Token
-    // console.log("generate token");
-    const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
-    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [uid]);
-    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+    // 7. Fetch new user data
+    const GET_USER_BY_ID = `
+    SELECT * 
+    FROM users 
+    WHERE userId = ?; 
+`;
+    const [NEW_USER] = await database.execute(GET_USER_BY_ID, [userId]);
 
-    //bahan token
-    let materialToken = USER_BY_ID[0].userId;
-    // let material2 = USER_BY_ID[0].username;
-    // let material3 = USER_BY_ID[0].email;
-    // let material4 = USER_BY_ID[0].isVerified;
+    delete NEW_USER[0].password;
 
-    //create token
-    let token = createToken({ materialToken });
-    console.log(token);
+    // 7. Generate token
+    const token = otp_generator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+    });
+    console.log("token :", token);
 
-    // 8. Kirim email verification dengan nodemailer
+    // 8. Store token into our database
+    const INSERT_TOKEN = `INSERT INTO tokens(userId, token) VALUES(${database.escape(
+      userId
+    )}, ${database.escape(token)});`;
+    const [TOKEN_CREATED] = await database.execute(INSERT_TOKEN);
+    console.log(TOKEN_CREATED);
+
+    // 9. Send token with email
     let mail = {
       from: "Admin <banquet.service2022@gmail.com",
       to: `${email}`,
       subject: "Banquet Account Verification",
-      html: `<a href='http://localhost:3000/authentication/${token}'>Click here to verify your Banquet Account.</a>`,
+      html: `<p>please verify your account using this code.</p>
+      <p>code : <b>${token}</b></p>
+      <p>NOTE : do not share this code.</p>`,
     };
 
     transporter.sendMail(mail, (errMail, resMail) => {
       if (errMail) {
-        // console.log(errMail);
-        // res.status(500).send({
-        //   message: "Registration failed!",
-        //   success: false,
-        //   err: errMail,
-        // });
         throw new createError(
           httpStatus.Bad_Request,
           "Register failed",
           errMail
         );
       }
-      // res.status(200).send({
-      //   message:
-      //     "Registration success, check your email for account verification",
-      //   success: true,
-      // });
-
-      const response = new createResponse(
+      response = new createResponse(
         httpStatus.OK,
         "Register success",
         "Please check your email and verify your account.",
-        USER_BY_ID[0],
+        NEW_USER[0],
         ""
       );
-
       res.status(response.status).send(response);
     });
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
+  }
+};
 
-    // res.status(200).send("<h1>List of users</h1>");
+module.exports.refreshToken = async (req, res) => {
+  let response;
+  const token = req.body.token;
+  const userId = req.header("uid");
+  console.log("masuk");
+  try {
+    // 1. Check token di dalam database
+    const CHECK_TOKEN = `SELECT createdAt FROM tokens WHERE token = ? AND userId = ?;`;
+    const [TOKEN] = await database.execute(CHECK_TOKEN, [token, userId]);
+    if (!TOKEN.length) {
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Refresh token failed",
+        "Invalid token."
+      );
+    }
+
+    // 2. Check apakah token expired
+    const now = new Date();
+    // Ambil waktu saat ini
+    const current = now.getTime();
+    // Ambil waktu saat token dibuat
+    const created = new Date(TOKEN[0].createdAt).getTime();
+    const step = current - created;
+
+    const remaining = Math.floor((30000 - step) / 1000); // milisecons
+    // Jika selisih waktu buat dan waktu saat ini < 30s
+    if (step <= 30000) {
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Refresh token failed",
+        `Please wait for ${remaining}s to refresh the token.`
+      );
+    }
+
+    // 3. Jika token exists dan waktu sudah lebih 30s, maka buat token baru
+    const newToken = otp_generator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    // 4. Update token di dalam database
+    const UPDATE_TOKEN = `UPDATE tokens SET token = ?, createdAt = ? WHERE userId = ?;`;
+    const [NEW_TOKEN] = await database.execute(UPDATE_TOKEN, [
+      newToken,
+      now,
+      userId,
+    ]);
+    console.log(NEW_TOKEN.info);
+
+    // 5. Ambil alamat email user
+    const GET_EMAIL = `SELECT email FROM users WHERE userId = ?;`;
+    const [EMAIL] = await database.execute(GET_EMAIL, [userId]);
+    let email = EMAIL[0].email;
+
+    // 6. Kirim token ke email
+    let mail = {
+      from: "Admin <banquet.service2022@gmail.com",
+      to: `${email}`,
+      subject: "Banquet Account Verification",
+      html: `<p>please verify your account using this code.</p>
+      <p>code : <b>${token}</b></p>
+      <p>NOTE : do not share this code.</p>`,
+    };
+
+    transporter.sendMail(mail, (errMail, resMail) => {
+      if (errMail) {
+        throw new createError(
+          httpStatus.Bad_Request,
+          "Update token failed failed",
+          ""
+        );
+      }
+      response = new createResponse(
+        httpStatus.OK,
+        "Token updated",
+        "Please check your email for the updated token.",
+        "",
+        ""
+      );
+      res.status(response.status).send(response);
+    });
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;

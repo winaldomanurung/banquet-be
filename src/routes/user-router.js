@@ -10,6 +10,7 @@ router.post("/register", user_controller.register);
 // kita terjemahkan token dulu dengan auth baru lanjut ke controller
 router.patch("/verify", auth, user_controller.verification);
 router.post("/login", user_controller.login);
+router.post("/refresh-token", user_controller.refreshToken);
 router.get("/:userId", user_controller.getById);
 router.patch(
   "/reset-password",
