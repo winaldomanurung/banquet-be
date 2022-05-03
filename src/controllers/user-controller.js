@@ -196,6 +196,12 @@ module.exports.sendEmailVerification = async (req, res) => {
   console.log("userId", userId);
   console.log("email", email);
   try {
+    // Update version
+    const UPDATE_USER_VERSION = `UPDATE users SET version=version+1 WHERE email=${database.escape(
+      email
+    )};`;
+    console.log(UPDATE_USER_VERSION);
+    const [UPDATED_USER] = await database.execute(UPDATE_USER_VERSION);
     // 1. Generate Token
     // console.log("generate token");
     const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
@@ -204,12 +210,12 @@ module.exports.sendEmailVerification = async (req, res) => {
 
     //bahan token
     let materialToken = USER_BY_ID[0].userId;
-    // let material2 = USER_BY_ID[0].username;
+    let version = USER_BY_ID[0].version;
     // let material3 = USER_BY_ID[0].email;
     // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
-    let token = createToken({ materialToken });
+    let token = createToken({ materialToken, version });
     console.log(token);
 
     // 2. Kirim email verification dengan nodemailer
@@ -270,8 +276,24 @@ module.exports.sendEmailVerification = async (req, res) => {
 
 module.exports.verification = async (req, res) => {
   // req.user didapat dari proses decoding di authToken.js dimana token diubah kembali menjadi data awalnya
-  const { materialToken } = req.user;
+  const { materialToken, version } = req.user;
   try {
+    // Check apakah token valid
+    const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ? AND version = ?;`;
+    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [
+      materialToken,
+      version,
+    ]);
+    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+
+    if (!USER_BY_ID.length) {
+      throw new createError(
+        httpStatus.Internal_Server_Error,
+        "Invalid token",
+        "This token is invalid. Please use the newest token!"
+      );
+    }
+
     let UPDATE_USER_VERIFICATION = `UPDATE users SET isVerified=1 WHERE userId=${database.escape(
       materialToken
     )};`;
@@ -281,7 +303,17 @@ module.exports.verification = async (req, res) => {
       message: "Account verification success.",
     });
   } catch (err) {
-    res.status(err.statusCode).send(err);
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
   }
 };
 
@@ -639,15 +671,29 @@ module.exports.resetPasswordRequest = async (req, res) => {
       );
     }
 
+    // Update version
+    const UPDATE_USER_VERSION = `UPDATE users SET version=version+1 WHERE email=${database.escape(
+      email
+    )};`;
+    console.log(UPDATE_USER_VERSION);
+    const [UPDATED_USER] = await database.execute(UPDATE_USER_VERSION);
+    // 1. Generate Token
+    // console.log("generate token");
+    const GET_USER_BY_ID = `SELECT * FROM users WHERE email = ?;`;
+    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [email]);
+    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+
     // 3. Generate Token
     //bahan token
-    let materialToken = USER_BY_EMAIL[0].userId;
+    let materialToken = USER_BY_ID[0].userId;
+    let version = USER_BY_ID[0].version;
+
     // let material2 = USER_BY_EMAIL[0].username;
     // let material3 = USER_BY_EMAIL[0].email;
     // let material4 = USER_BY_EMAIL[0].isVerified;
 
     //create token
-    let token = createToken({ materialToken });
+    let token = createToken({ materialToken, version });
     console.log(token);
 
     // 8. Kirim email verification dengan nodemailer
@@ -706,9 +752,24 @@ module.exports.resetPasswordRequest = async (req, res) => {
 
 module.exports.resetPasswordConfirmation = async (req, res) => {
   // req.user didapat dari proses decoding di authToken.js dimana token diubah kembali menjadi data awalnya
-  const { materialToken } = req.user;
+  const { materialToken, version } = req.user;
   const { password } = req.body;
   try {
+    // Check apakah token valid
+    const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ? AND version = ?;`;
+    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [
+      materialToken,
+      version,
+    ]);
+    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+
+    if (!USER_BY_ID.length) {
+      throw new createError(
+        httpStatus.Internal_Server_Error,
+        "Invalid token",
+        "This token is invalid. Please use the newest token!"
+      );
+    }
     // Hash password
     const salt = await bcrypt.genSalt(10);
     console.log("salt : ", salt);
@@ -733,10 +794,27 @@ module.exports.resetPasswordConfirmation = async (req, res) => {
 
 module.exports.retrieveData = async (req, res) => {
   console.log("masuk retrieveData");
-  const { materialToken } = req.user;
+  const { materialToken, version } = req.user;
   // const uid = req.uid
   console.log(req.user);
+  console.log(version);
   try {
+    // Check apakah token valid
+    const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ? AND version = ?;`;
+    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [
+      materialToken,
+      version,
+    ]);
+    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+
+    if (!USER_BY_ID.length) {
+      throw new createError(
+        httpStatus.Internal_Server_Error,
+        "Invalid token",
+        "This token is invalid. Please use the newest token!"
+      );
+    }
+
     const GET_USER = `SELECT * FROM users WHERE userId = ?;`;
     const [USER] = await database.execute(GET_USER, [materialToken]);
 
