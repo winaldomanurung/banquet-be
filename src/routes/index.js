@@ -1,7 +1,7 @@
 const user_router = require("./user-router");
-const upload_router = require("./upload-router");
+const restaurant_router = require("./restaurant-router");
 
 module.exports = {
   user_router,
-  upload_router,
+  restaurant_router,
 };
