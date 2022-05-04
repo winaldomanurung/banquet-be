@@ -16,6 +16,8 @@ const createError = require("../helpers/createError");
 const createResponse = require("../helpers/createResponse");
 const httpStatus = require("../helpers/httpStatusCode");
 const JWT = require("jsonwebtoken");
+const mustache = require("mustache");
+const path = require("path");
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
@@ -219,11 +221,20 @@ module.exports.sendEmailVerification = async (req, res) => {
     console.log(token);
 
     // 2. Kirim email verification dengan nodemailer
+    const __dirname = process.cwd();
+    const template = fs.readFileSync(
+      path.join(__dirname) + "/src/helpers/templateVerification.html",
+      "utf8"
+    );
+
     let mail = {
-      from: "Admin <banquet.service2022@gmail.com",
+      from: "Banquet Admin <banquet.service2022@gmail.com>",
       to: `${email}`,
       subject: "Banquet Account Verification",
-      html: `<a href='http://localhost:3000/authentication/${token}'>Click here to verify your Banquet Account.</a>`,
+      html: mustache.render(template, {
+        username: USER_BY_ID[0].username,
+        link: `http://localhost:3000/authentication/${token}`,
+      }),
     };
 
     console.log("after email setting");
@@ -695,13 +706,28 @@ module.exports.resetPasswordRequest = async (req, res) => {
     //create token
     let token = createToken({ materialToken, version });
     console.log(token);
+    console.log(process.cwd());
 
     // 8. Kirim email verification dengan nodemailer
+    // const template = fs.readFileSync("./template.html", {
+    //   encoding: "utf8",
+    // });
+
+    const __dirname = process.cwd();
+    const template = fs.readFileSync(
+      path.join(__dirname) + "/src/helpers/templateResetPassword.html",
+      "utf8"
+    );
+
     let mail = {
-      from: "Admin <banquet.service2022@gmail.com",
+      from: "Banquet Admin <banquet.service2022@gmail.com>",
       to: `${email}`,
       subject: "Reset Password for Banquet Account",
-      html: `<a href='http://localhost:3000/reset-password/${token}'>Click here to reset your Banquet Account password.</a>`,
+      // html: `<a href='http://localhost:3000/reset-password/${token}'>Click here to reset your Banquet Account password.</a>`,
+      html: mustache.render(template, {
+        username: USER_BY_ID[0].username,
+        link: `http://localhost:3000/reset-password/${token}`,
+      }),
     };
 
     transporter.sendMail(mail, (errMail, resMail) => {
