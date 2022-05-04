@@ -129,20 +129,30 @@ module.exports.register = async (req, res) => {
 
     //bahan token
     let materialToken = USER_BY_ID[0].userId;
+    let version = USER_BY_ID[0].version;
     // let material2 = USER_BY_ID[0].username;
     // let material3 = USER_BY_ID[0].email;
     // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
-    let token = createToken({ materialToken });
+    let token = createToken({ materialToken, version });
     console.log(token);
 
     // 8. Kirim email verification dengan nodemailer
+    const __dirname = process.cwd();
+    const template = fs.readFileSync(
+      path.join(__dirname) + "/src/helpers/templateVerification.html",
+      "utf8"
+    );
+
     let mail = {
-      from: "Admin <banquet.service2022@gmail.com",
+      from: "Banquet Admin <banquet.service2022@gmail.com>",
       to: `${email}`,
       subject: "Banquet Account Verification",
-      html: `<a href='http://localhost:3000/authentication/${token}'>Click here to verify your Banquet Account.</a>`,
+      html: mustache.render(template, {
+        username: USER_BY_ID[0].username,
+        link: `http://localhost:3000/authentication/${token}`,
+      }),
     };
 
     transporter.sendMail(mail, (errMail, resMail) => {
@@ -387,12 +397,13 @@ module.exports.login = async (req, res) => {
 
     //bahan token
     let materialToken = USER[0].userId;
+    let version = USER[0].version;
     // let material2 = USER[0].username;
     // let material3 = USER[0].email;
     // let material4 = USER[0].isVerified;
 
     //create token
-    let token = createToken({ materialToken });
+    let token = createToken({ materialToken, version });
     console.log(token);
 
     // if (material4 != 1) {
@@ -810,11 +821,27 @@ module.exports.resetPasswordConfirmation = async (req, res) => {
     console.log(UPDATE_USER_PASSWORD);
     const [UPDATED_USER] = await database.execute(UPDATE_USER_PASSWORD);
     console.log(UPDATED_USER[0]);
-    res.status(200).send({
-      message: "Password change success.",
-    });
+    const response = new createResponse(
+      httpStatus.OK,
+      "Password change success.",
+      "Your password has been changed.",
+      "",
+      ""
+    );
+
+    res.status(response.status).send(response);
   } catch (err) {
-    res.status(err.statusCode).send(err);
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
   }
 };
 
