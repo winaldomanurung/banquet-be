@@ -38,6 +38,7 @@ app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 /* /////////////// */
 app.use("/users", routers.user_router);
 app.use("/restaurants", routers.restaurant_router);
+app.use("/reactions", routers.reaction_router);
 
 const PORT = 2000;
 app.listen(PORT, () => console.log(`API is connected at PORT: ${PORT}.`));
