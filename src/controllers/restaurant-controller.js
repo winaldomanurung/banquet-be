@@ -3,6 +3,11 @@ const databaseSync = require("../config");
 const createError = require("../helpers/createError");
 const createResponse = require("../helpers/createResponse");
 const httpStatus = require("../helpers/httpStatusCode");
+const mbxGeocoding = require("@mapbox/mapbox-sdk/services/geocoding");
+const mapBoxToken = process.env.MAPBOX_TOKEN;
+const geocoder = mbxGeocoding({ accessToken: mapBoxToken });
+const { uploader } = require("../helpers/uploader");
+const fs = require("fs");
 
 module.exports.getRestaurants = async (req, res) => {
   try {
@@ -75,90 +80,122 @@ module.exports.getRestaurantById = async (req, res) => {
   }
 };
 
-module.exports.addRestaurant = async (req, res) => {
-  let { userId, name, type, description, price, coordinate } = req.body;
-  console.log(req.body);
-  try {
-    // 2. Validasi req.body, apakah sesuai dengan schema Joi
-    // const { error } = registerUserSchema.validate(req.body);
-    // if (error) {
-    //   throw new createError(
-    //     httpStatus.Bad_Request,
-    //     "Register failed",
-    //     error.details[0].message
-    //   );
-    // }
+module.exports.addRestaurant = (req, res) => {
+  console.log("masuk");
+  let newRestaurant;
+  let path = "/restaurant-images";
 
-    // 3. Validasi apakah name unique
-    // const CHECK_RESTO = `SELECT * FROM restaurants WHERE name = ?`;
-    // const [RESTO_DATA] = await database.execute(CHECK_RESTO, [name]);
-    // if (RESTO_DATA.length) {
-    //   throw new createError(
-    //     httpStatus.Bad_Request,
-    //     "Add restaurant failed",
-    //     "Name already exists!"
-    //   );
-    // }
+  // if (!req.files) {
+  //   throw new createError(
+  //     httpStatus.Internal_Server_Error,
+  //     "Upload failed",
+  //     "You have to provide atleast one image!"
+  //   );
+  // }
 
-    userId = 1;
+  const upload = uploader(path, "IMG").fields([{ name: "file" }]);
 
-    // Validasi apakah ada userId
-    const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
-    const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [userId]);
-    console.log("USER_BY_ID: ", USER_BY_ID[0]);
+  upload(req, res, async (error) => {
+    try {
+      if (error) {
+        throw new createError(
+          httpStatus.Internal_Server_Error,
+          "Internal Server Error",
+          "Add restaurant failed."
+        );
+      }
 
-    if (!USER_BY_ID.length) {
-      throw new createError(
-        httpStatus.Internal_Server_Error,
-        "Invalid user credential",
-        "User can't be found!"
+      console.log("lewat");
+
+      let data = JSON.parse(req.body.data);
+      let { userId, name, location, type, price, description } = data;
+
+      const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
+      const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [userId]);
+
+      if (!USER_BY_ID.length) {
+        throw new createError(
+          httpStatus.Internal_Server_Error,
+          "Invalid user credential",
+          "User can't be found!"
+        );
+      }
+
+      const geoData = await geocoder
+        .forwardGeocode({
+          query: location,
+          limit: 1,
+        })
+        .send();
+
+      let lat = geoData.body.features[0].geometry.coordinates[1];
+      let long = geoData.body.features[0].geometry.coordinates[0];
+      console.log(lat);
+      console.log(long);
+
+      const INSERT_RESTO = `INSERT INTO restaurants (userId, name, type, description, price, coordinate) VALUES(${database.escape(
+        userId
+      )}, ${database.escape(name)}, ${database.escape(type)}, ${database.escape(
+        description
+      )} , ${database.escape(price)}, st_geomfromtext('POINT(${database.escape(
+        lat
+      )} ${database.escape(long)})'));`;
+      const [RESTO] = await database.execute(INSERT_RESTO);
+      let restaurantId = RESTO.insertId;
+      newRestaurant = RESTO;
+
+      // Image table
+
+      const { file } = req.files;
+      console.log(file);
+
+      let imageQuery = "";
+
+      for (var i = 0; i < file.length; i++) {
+        imageQuery += `(${database.escape(restaurantId)}, ${database.escape(
+          path + "/" + file[i].filename
+        )}),`;
+      }
+
+      console.log(imageQuery);
+
+      let INSERT_IMAGES = `INSERT INTO restaurant_images(restaurantId, imageUrl) VALUES ${imageQuery.slice(
+        0,
+        -1
+      )};`;
+      console.log(INSERT_IMAGES);
+      databaseSync.query(INSERT_IMAGES, (err, results) => {
+        if (err) {
+          throw new createError(
+            httpStatus.Internal_Server_Error,
+            "Upload failed",
+            "Upload image failed!"
+          );
+        }
+      });
+      const response = new createResponse(
+        httpStatus.OK,
+        "Add restaurant success",
+        "Your restaurant now can be seen by other users.",
+        newRestaurant,
+        ""
       );
+
+      res.status(response.status).send(response);
+    } catch (err) {
+      console.log("error : ", err);
+      const isTrusted = err instanceof createError;
+      if (!isTrusted) {
+        err = new createError(
+          httpStatus.Internal_Server_Error,
+          "SQL Script Error",
+          err.sqlMessage
+        );
+        console.log(err);
+      }
+      res.status(err.status).send(err);
     }
-
-    // 6. Store data resto ke dalam database
-    // const INSERT_RESTO = `INSERT INTO restaurants (userId, name, type, description, price, coordinate) VALUES(${database.escape(
-    //   userId
-    // )}, ${database.escape(name)}, ${database.escape(type)}, ${database.escape(
-    //   description
-    // )} , ${database.escape(price)}, st_geomfromtext('POINT(${database.escape(
-    //   coordinate.long
-    // )} ${database.escape(coordinate.lat)})'));`;
-    const INSERT_RESTO = `INSERT INTO restaurants (userId, name, type, description, price, coordinate) VALUES(${database.escape(
-      userId
-    )}, ${database.escape(name)}, ${database.escape(type)}, ${database.escape(
-      description
-    )} , ${database.escape(price)}, st_geomfromtext('POINT(21 20)'));`;
-    const [RESTO] = await database.execute(INSERT_RESTO);
-    // console.log(INFO);
-
-    // 7. Generate Token
-    // console.log("generate token");
-    const GET_RESTO_BY_NAME = `SELECT * FROM restaurants WHERE name = ?;`;
-    const [RESTO_BY_NAME] = await database.execute(GET_RESTO_BY_NAME, [name]);
-    console.log("RESTO_BY_NAME: ", RESTO_BY_NAME[0]);
-
-    const response = new createResponse(
-      httpStatus.OK,
-      "Add restaurant success",
-      "Your restaurant now can be seen by other users.",
-      RESTO_BY_NAME[0],
-      ""
-    );
-
-    res.status(response.status).send(response);
-  } catch (err) {
-    console.log("error : ", err);
-    const isTrusted = err instanceof createError;
-    if (!isTrusted) {
-      err = new createError(
-        httpStatus.Internal_Server_Error,
-        "SQL Script Error",
-        err.sqlMessage
-      );
-      console.log(err);
-    }
-    res.status(err.status).send(err);
-  }
+  });
 };
 
 module.exports.editRestaurant = async (req, res) => {
