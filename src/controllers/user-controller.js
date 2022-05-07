@@ -28,7 +28,7 @@ module.exports.getById = async (req, res) => {
 
   try {
     const GET_USER_BY_ID = `
-          SELECT * 
+          SELECT *
           FROM users 
           WHERE userId = ?; 
       `;
@@ -36,17 +36,22 @@ module.exports.getById = async (req, res) => {
 
     // validate
     if (!USER.length) {
-      const err = new Error("Error");
-      err.statusCode = 500;
-      err.message = "ID not found";
-      throw err;
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Fetch failed",
+        "User ID is not registered!"
+      );
     }
 
-    // create respond
-    res.status(200).send({
-      data: USER,
-      message: "OK",
-    });
+    const response = new createResponse(
+      httpStatus.OK,
+      "Get user profile success",
+      "User profile retrieved successfully",
+      USER[0],
+      ""
+    );
+
+    res.status(response.status).send(response);
   } catch (err) {
     res.status(err.statusCode).send(err.message);
   }

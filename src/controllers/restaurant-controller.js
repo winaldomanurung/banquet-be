@@ -14,10 +14,15 @@ module.exports.getRestaurants = async (req, res) => {
     const GET_RESTAURANTS = `SELECT * FROM restaurants;`;
     const [RESTAURANTS] = await database.execute(GET_RESTAURANTS);
 
-    res.status(200).send({
-      data: RESTAURANTS,
-      message: "OK",
-    });
+    const response = new createResponse(
+      httpStatus.OK,
+      "Restaurant data fetched",
+      "Restaurant data fetched successfully!",
+      RESTAURANTS,
+      ""
+    );
+
+    res.status(response.status).send(response);
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;
@@ -39,9 +44,17 @@ module.exports.getRestaurantById = async (req, res) => {
 
   try {
     const GET_RESTAURANT_BY_ID = `
-          SELECT * 
-          FROM restaurants 
-          WHERE restaurantId = ?; 
+    SELECT 
+    restaurantId, 
+    name, 
+    type, 
+    description, 
+    price, 
+    coordinate, 
+    userId, 
+    date_format(createdAt, '%M %e, %Y') as createdDate
+    FROM restaurants 
+    WHERE restaurantId = ?; 
       `;
     const [RESTAURANT] = await database.execute(GET_RESTAURANT_BY_ID, [
       restaurantId,
@@ -133,9 +146,11 @@ module.exports.addRestaurant = (req, res) => {
       console.log(lat);
       console.log(long);
 
-      const INSERT_RESTO = `INSERT INTO restaurants (userId, name, type, description, price, coordinate) VALUES(${database.escape(
+      const INSERT_RESTO = `INSERT INTO restaurants (userId, name, location, type, description, price, coordinate) VALUES(${database.escape(
         userId
-      )}, ${database.escape(name)}, ${database.escape(type)}, ${database.escape(
+      )}, ${database.escape(name)}, ${database.escape(
+        location
+      )}, ${database.escape(type)}, ${database.escape(
         description
       )} , ${database.escape(price)}, st_geomfromtext('POINT(${database.escape(
         lat
@@ -387,6 +402,72 @@ module.exports.getMyRestaurants = async (req, res) => {
       "Get restaurants success",
       "Restaurants loaded successfully!",
       RESTAURANTS,
+      ""
+    );
+
+    res.status(response.status).send(response);
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
+  }
+};
+
+module.exports.getRestaurantImages = async (req, res) => {
+  const restaurantId = req.params.restaurantId;
+  // const userId = req.params.userId;
+
+  console.log(restaurantId);
+
+  try {
+    const GET_RESTAURANTS_BY_ID = `
+          SELECT * 
+          FROM restaurants 
+          WHERE restaurantId = ?; 
+      `;
+    const [RESTAURANTS] = await database.execute(GET_RESTAURANTS_BY_ID, [
+      restaurantId,
+    ]);
+
+    // validate
+    if (!RESTAURANTS.length) {
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Restaurant is not found!",
+        "You don't have any restaurant"
+      );
+    }
+
+    const GET_RESTAURANT_IMAGES = `
+    SELECT * FROM restaurant_images WHERE restaurantId=?; 
+`;
+    const [RESTAURANT_IMAGES] = await database.execute(GET_RESTAURANT_IMAGES, [
+      restaurantId,
+    ]);
+
+    // validate
+    if (!RESTAURANT_IMAGES.length) {
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Image is not found!",
+        "You don't have any restaurant image"
+      );
+    }
+
+    // create respond
+    const response = new createResponse(
+      httpStatus.OK,
+      "Get images success",
+      "Restaurant images loaded successfully!",
+      RESTAURANT_IMAGES,
       ""
     );
 
