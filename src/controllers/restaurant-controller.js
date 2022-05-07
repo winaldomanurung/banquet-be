@@ -11,7 +11,27 @@ const fs = require("fs");
 
 module.exports.getRestaurants = async (req, res) => {
   try {
-    const GET_RESTAURANTS = `SELECT * FROM restaurants;`;
+    const GET_RESTAURANTS = `
+    SELECT 
+      r.restaurantId, 
+      r.userId,
+      r.name, 
+      r.location,
+      r.description, 
+      r.price, 
+      r.createdAt,
+      u.username, 
+      u.imageUrl as userImageUrl, 
+      ri.imageUrl as restaurantImageUrl, 
+      COUNT(DISTINCT(re.likes)) as totalLikes, 
+      COUNT(DISTINCT(re.dislikes)) as totalDislikes, 
+      COUNT(DISTINCT(rev.reviewTitle)) as totalReviews 
+    FROM restaurants r
+    LEFT JOIN users u ON r.userId = u.userId
+    LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+    LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+    LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+    GROUP BY r.restaurantId;`;
     const [RESTAURANTS] = await database.execute(GET_RESTAURANTS);
 
     const response = new createResponse(
@@ -376,9 +396,11 @@ module.exports.getMyRestaurants = async (req, res) => {
 
   try {
     const GET_RESTAURANTS_BY_ID = `
-          SELECT * 
-          FROM restaurants 
-          WHERE userId = 1; 
+    SELECT * 
+    FROM restaurants r
+    INNER JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+    WHERE userId = 1
+    GROUP BY r.restaurantId;
       `;
     const [RESTAURANTS] = await database.execute(
       GET_RESTAURANTS_BY_ID
