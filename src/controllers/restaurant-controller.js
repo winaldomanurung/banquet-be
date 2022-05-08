@@ -9,7 +9,46 @@ const geocoder = mbxGeocoding({ accessToken: mapBoxToken });
 const { uploader } = require("../helpers/uploader");
 const fs = require("fs");
 
+// module.exports.getStudents = async (req, res) => {
+//   // capture all request query params
+//   const limit = Number(req.query._limit) || 5
+//   const page = Number(req.query._page) || 1
+//   const offset = (page - 1) * limit
+//   const sort = req.query._sort || 'id'
+//   const order = req.query._order || 'ASC'
+
+//   // define query
+//   const GET_STUDENTS = `
+//       SELECT st.id, st.studentId, st.name, st.email, pg.program, ct.city
+//       FROM students AS st
+//       JOIN program AS pg ON pg.id = st.programId
+//       JOIN city AS ct ON ct.id = st.cityId
+//       ORDER BY ${'st.' + sort} ${order}
+//       LIMIT ${database.escape(offset)}, ${database.escape(limit)};
+//   `
+//   const GET_TOTAL = `SELECT COUNT(*) AS total FROM students;`
+
+//   // execute query
+//   try {
+//       const [ STUDENTS ] = await database.execute(GET_STUDENTS)
+//       const [ TOTAL ] = await database.execute(GET_TOTAL)
+
+//       const respond = new createRespond(http_status.OK, 'get', true, TOTAL[0].total, limit, STUDENTS)
+//       res.status(respond.status).send(respond)
+//   } catch (error) {
+//       const isTrusted = error instanceof createError
+//       if (!isTrusted) {
+//           error = new createError(http_status.INTERNAL_SERVICE_ERROR, error.sqlMessage)
+//           console.log(error)
+//       }
+//       res.status(error.status).send(error)
+//   }
+// }
+
 module.exports.getRestaurants = async (req, res) => {
+  const page = req.query.page || 1;
+  const limit = 6;
+  const offset = (page - 1) * limit;
   try {
     const GET_RESTAURANTS = `
     SELECT 
@@ -31,15 +70,26 @@ module.exports.getRestaurants = async (req, res) => {
     LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
     LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
     LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
-    GROUP BY r.restaurantId;`;
+    GROUP BY r.restaurantId
+    ORDER BY r.createdAt
+    LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const [RESTAURANTS] = await database.execute(GET_RESTAURANTS);
+
+    const COUNT_RESTAURANTS = `
+    SELECT COUNT(DISTINCT(restaurantId)) as totalRestaurants FROM restaurants;`;
+    const [RESTAURANTS_AMOUNT] = await database.execute(COUNT_RESTAURANTS);
+
+    console.log(RESTAURANTS);
+    console.log(RESTAURANTS_AMOUNT);
+
+    // let result = Object.assign({}, o1, o2, o3);
 
     const response = new createResponse(
       httpStatus.OK,
       "Restaurant data fetched",
       "Restaurant data fetched successfully!",
       RESTAURANTS,
-      ""
+      RESTAURANTS_AMOUNT
     );
 
     res.status(response.status).send(response);
