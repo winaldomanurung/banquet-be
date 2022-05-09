@@ -4,7 +4,7 @@ const { restaurant_controller } = require("../controllers");
 const route = express.Router();
 
 route.get("/", restaurant_controller.getRestaurants);
-route.get("/get-my-restaurants", restaurant_controller.getMyRestaurants);
+route.get("/:userId/my-restaurants", restaurant_controller.getMyRestaurants);
 
 route.get("/:restaurantId/images", restaurant_controller.getRestaurantImages);
 // route.get("/:restaurantId/reviews", restaurant_controller.getRestaurantReviews);

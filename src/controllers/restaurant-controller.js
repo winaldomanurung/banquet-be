@@ -58,7 +58,7 @@ module.exports.getRestaurants = async (req, res) => {
       r.location,
       r.description, 
       r.price, 
-      r.createdAt,
+      date_format(r.createdAt, '%M %e, %Y') as createdDate,
       u.username, 
       u.imageUrl as userImageUrl, 
       ri.imageUrl as restaurantImageUrl, 
@@ -441,40 +441,76 @@ module.exports.deleteRestaurant = async (req, res) => {
 };
 
 module.exports.getMyRestaurants = async (req, res) => {
-  // const restaurantId = req.params.restaurantId;
+  const userId = req.params.userId;
   // console.log(restaurantId);
+  const page = req.query.page || 1;
+  const limit = 6;
+  const offset = (page - 1) * limit;
 
   try {
-    const GET_RESTAURANTS_BY_ID = `
-    SELECT * 
-    FROM restaurants r
-    INNER JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
-    WHERE userId = 1
-    GROUP BY r.restaurantId;
-      `;
-    const [RESTAURANTS] = await database.execute(
-      GET_RESTAURANTS_BY_ID
-      //   , [
-      //   restaurantId,
-      // ]
+    const FIND_USER = `SELECT id FROM users WHERE userId = ${database.escape(
+      userId
+    )};`;
+
+    const [USER] = await database.execute(FIND_USER);
+    if (!USER.length) {
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Edit failed",
+        "User ID is not registered!"
+      );
+    }
+
+    const GET_MY_RESTAURANTS = `
+      SELECT 
+        r.restaurantId, 
+        r.userId,
+        r.name, 
+        r.location,
+        r.description, 
+        r.price, 
+        date_format(r.createdAt, '%M %e, %Y') as createdDate,
+        u.username, 
+        u.imageUrl as userImageUrl, 
+        ri.imageUrl as restaurantImageUrl, 
+        COUNT(DISTINCT(re.likes)) as totalLikes, 
+        COUNT(DISTINCT(re.dislikes)) as totalDislikes, 
+        COUNT(DISTINCT(rev.reviewTitle)) as totalReviews 
+      FROM restaurants r
+      LEFT JOIN users u ON r.userId = u.userId
+      LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+      LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+      LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+      WHERE r.userId = ${database.escape(userId)}
+      GROUP BY r.restaurantId
+      ORDER BY r.createdAt
+      LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
+    const [MY_RESTAURANTS] = await database.execute(GET_MY_RESTAURANTS);
+
+    const COUNT_MY_RESTAURANTS = `
+      SELECT COUNT(DISTINCT(restaurantId)) as totalRestaurants FROM restaurants WHERE userId = ${database.escape(
+        userId
+      )};`;
+    const [MY_RESTAURANTS_AMOUNT] = await database.execute(
+      COUNT_MY_RESTAURANTS
     );
 
     // validate
-    if (!RESTAURANTS.length) {
-      throw new createError(
-        httpStatus.Bad_Request,
-        "Restaurant is not found!",
-        "You don't have any restaurant"
-      );
-    }
+    // if (!MY_RESTAURANTS.length) {
+    //   throw new createError(
+    //     httpStatus.Bad_Request,
+    //     "Restaurant is not found!",
+    //     "You don't have any restaurant"
+    //   );
+    // }
 
     // create respond
     const response = new createResponse(
       httpStatus.OK,
       "Get restaurants success",
       "Restaurants loaded successfully!",
-      RESTAURANTS,
-      ""
+      MY_RESTAURANTS,
+      MY_RESTAURANTS_AMOUNT
     );
 
     res.status(response.status).send(response);
