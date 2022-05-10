@@ -120,6 +120,7 @@ module.exports.getRestaurantById = async (req, res) => {
     type, 
     description, 
     price, 
+    location,
     coordinate, 
     userId, 
     date_format(createdAt, '%M %e, %Y') as createdDate
@@ -287,6 +288,7 @@ module.exports.editRestaurant = async (req, res) => {
   let err;
   const restaurantId = req.params.restaurantId;
   const body = req.body;
+  console.log(body);
   console.log(restaurantId, body);
   try {
     // 1. Check data apakah data user ada di dalam database
@@ -404,7 +406,7 @@ module.exports.deleteRestaurant = async (req, res) => {
     if (!RESTAURANT.length) {
       throw new createError(
         httpStatus.Bad_Request,
-        "Edit restaurant failed",
+        "Delete restaurant failed",
         "Restaurant is not found!"
       );
     }
@@ -550,7 +552,7 @@ module.exports.getRestaurantImages = async (req, res) => {
       throw new createError(
         httpStatus.Bad_Request,
         "Restaurant is not found!",
-        "You don't have any restaurant"
+        "Restaurant is not registered"
       );
     }
 

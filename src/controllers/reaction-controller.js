@@ -229,7 +229,7 @@ module.exports.dislike = async (req, res) => {
 };
 
 module.exports.counter = async (req, res) => {
-  let { restaurantId } = req.body;
+  let restaurantId = req.params.restaurantId;
 
   try {
     // 1. Validasi apakah ada restaurantId
@@ -251,14 +251,14 @@ module.exports.counter = async (req, res) => {
 
     // 3. Hitung jumlah 'like' dan 'dislike'
 
-    const COUNT_REACTIONS = `SELECT COUNT(DISTINCT(likes)) as total_likes, COUNT(DISTINCT(dislikes)) as total_dislikes FROM reactions WHERE restaurantId=${database.escape(
+    const COUNT_REACTIONS = `SELECT COUNT(likes) as total_likes, COUNT(dislikes) as total_dislikes FROM reactions WHERE restaurantId=${database.escape(
       restaurantId
     )};`;
 
     const [REACTIONS] = await database.execute(COUNT_REACTIONS);
 
     // 4. Hitung jumlah review
-    const COUNT_REVIEWS = `SELECT COUNT(DISTINCT(reviewTitle)) as total_reviews FROM reviews WHERE restaurantId=${database.escape(
+    const COUNT_REVIEWS = `SELECT COUNT(reviewTitle) as total_reviews FROM reviews WHERE restaurantId=${database.escape(
       restaurantId
     )};`;
 
@@ -410,6 +410,42 @@ module.exports.getReviews = async (req, res) => {
       "Restaurant data fetched",
       "Restaurant data fetched successfully!",
       REVIEWS,
+      ""
+    );
+
+    res.status(response.status).send(response);
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
+  }
+};
+
+module.exports.getReactionById = async (req, res) => {
+  const restaurantId = req.params.restaurantId;
+  const userId = req.params.userId;
+  console.log(restaurantId, userId);
+  try {
+    const GET_REACTIONS = `SELECT * FROM reactions
+      WHERE restaurantId=${restaurantId}
+      AND userId = ${database.escape(userId)};`;
+
+    console.log(GET_REACTIONS);
+    const [REACTIONS] = await database.execute(GET_REACTIONS);
+
+    const response = new createResponse(
+      httpStatus.OK,
+      "Restaurant data fetched",
+      "Restaurant data fetched successfully!",
+      REACTIONS[0],
       ""
     );
 
