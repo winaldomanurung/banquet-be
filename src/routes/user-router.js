@@ -5,6 +5,7 @@ const { user_controller } = require("../controllers");
 const { auth } = require("../helpers/authToken");
 
 router.get("/", user_controller.getUsers);
+router.post("/seeding", user_controller.seedingUser);
 router.get("/retrieve-data", auth, user_controller.retrieveData);
 router.post("/register", user_controller.register);
 // kita terjemahkan token dulu dengan auth baru lanjut ke controller
