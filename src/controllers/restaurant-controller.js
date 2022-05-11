@@ -771,7 +771,7 @@ module.exports.seedingRestaurants = async (req, res) => {
 
         query = `('${userId[i]}', '${restaurantName[i + 15]}', '${
           restaurantLocation[i + 15]
-        }','${type[Math.floor(Math.random() * 7)]}', '$${
+        }','${type[Math.floor(Math.random() * 7)]}', '${
           description[Math.floor(Math.random() * 16)]
         }', ${
           Math.floor(Math.random() * 101) * 1000
