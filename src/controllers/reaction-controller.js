@@ -38,29 +38,37 @@ module.exports.like = async (req, res) => {
       );
     }
 
+    console.log("lewat1");
+
     // 3. Add 'like' jika belum ada 'like' ataupun 'dislike'
     const INSERT_LIKE = `INSERT INTO reactions(restaurantId, userId, likes) SELECT * FROM (SELECT ${database.escape(
       restaurantId
     )}, ${database.escape(
       userId
-    )}, 1) AS tmp WHERE NOT EXISTS (SELECT * FROM reactions WHERE restaurantId=${database.escape(
+    )}, true) AS tmp WHERE NOT EXISTS (SELECT * FROM reactions WHERE restaurantId=${database.escape(
       restaurantId
-    )} AND userId=${database.escape(userId)} AND (likes=1 OR dislikes=1))`;
+    )} AND userId=${database.escape(
+      userId
+    )} AND (likes=true OR dislikes=true));`;
     const [NEW_LIKE] = await database.execute(INSERT_LIKE);
+
+    console.log("lewat");
 
     // 4. Jika tidak bisa insert new like, berarti awalnya sudah ada reaction
     if (NEW_LIKE.affectedRows == 0) {
       const GET_REACTION = `SELECT * FROM reactions WHERE restaurantId=${database.escape(
         restaurantId
-      )} AND userId=${database.escape(userId)} AND (likes=1 OR dislikes=1);`;
+      )} AND userId=${database.escape(
+        userId
+      )} AND (likes=true OR dislikes=true);`;
 
       const [REACTION] = await database.execute(GET_REACTION);
 
       // 4.1 Jika sudah di dislike, update dislike menjadi like
-      if (REACTION[0].dislikes == 1) {
-        const TOGGLE_TO_LIKE = `UPDATE reactions SET likes=1, dislikes=null WHERE restaurantId=${database.escape(
+      if (REACTION[0].dislikes == true) {
+        const TOGGLE_TO_LIKE = `UPDATE reactions SET likes=true, dislikes=false WHERE restaurantId=${database.escape(
           restaurantId
-        )} AND userId=${database.escape(userId)} AND dislikes=1`;
+        )} AND userId=${database.escape(userId)} AND dislikes=true`;
         const [UPDATE_LIKE] = await database.execute(TOGGLE_TO_LIKE);
 
         const response = new createResponse(
@@ -73,10 +81,10 @@ module.exports.like = async (req, res) => {
         return res.status(response.status).send(response);
       }
       // 4.2 Atau case kedua, user memang mau hapus review likenya
-      else if (REACTION[0].likes == 1) {
+      else if (REACTION[0].likes == true) {
         const REMOVE_LIKE = `DELETE FROM reactions WHERE restaurantId=${database.escape(
           restaurantId
-        )} AND userId=${database.escape(userId)} AND likes=1`;
+        )} AND userId=${database.escape(userId)} AND likes=true`;
 
         const [UPDATE_LIKE] = await database.execute(REMOVE_LIKE);
 
@@ -155,24 +163,28 @@ module.exports.dislike = async (req, res) => {
       restaurantId
     )}, ${database.escape(
       userId
-    )}, 1) AS tmp WHERE NOT EXISTS (SELECT * FROM reactions WHERE restaurantId=${database.escape(
+    )}, true) AS tmp WHERE NOT EXISTS (SELECT * FROM reactions WHERE restaurantId=${database.escape(
       restaurantId
-    )} AND userId=${database.escape(userId)} AND (likes=1 OR dislikes=1))`;
+    )} AND userId=${database.escape(
+      userId
+    )} AND (likes=true OR dislikes=true))`;
     const [NEW_DISLIKE] = await database.execute(INSERT_DISLIKE);
 
     // 4. Jika tidak bisa insert new dislike, berarti awalnya sudah ada reaction
     if (NEW_DISLIKE.affectedRows == 0) {
       const GET_REACTION = `SELECT * FROM reactions WHERE restaurantId=${database.escape(
         restaurantId
-      )} AND userId=${database.escape(userId)} AND (likes=1 OR dislikes=1);`;
+      )} AND userId=${database.escape(
+        userId
+      )} AND (likes=true OR dislikes=true);`;
 
       const [REACTION] = await database.execute(GET_REACTION);
 
       // 4.1 Jika sudah di like, update like menjadi dislike
       if (REACTION[0].likes) {
-        const TOGGLE_TO_DISLIKE = `UPDATE reactions SET dislikes=1, likes=null WHERE restaurantId=${database.escape(
+        const TOGGLE_TO_DISLIKE = `UPDATE reactions SET dislikes=1, likes=false WHERE restaurantId=${database.escape(
           restaurantId
-        )} AND userId=${database.escape(userId)} AND likes=1`;
+        )} AND userId=${database.escape(userId)} AND likes=true`;
         const [UPDATE_DISLIKE] = await database.execute(TOGGLE_TO_DISLIKE);
 
         const response = new createResponse(
@@ -188,7 +200,7 @@ module.exports.dislike = async (req, res) => {
       else if (REACTION[0].dislikes) {
         const REMOVE_DISLIKE = `DELETE FROM reactions WHERE restaurantId=${database.escape(
           restaurantId
-        )} AND userId=${database.escape(userId)} AND dislikes=1`;
+        )} AND userId=${database.escape(userId)} AND dislikes=true`;
 
         const [UPDATE_DISLIKE] = await database.execute(REMOVE_DISLIKE);
 
@@ -251,9 +263,15 @@ module.exports.counter = async (req, res) => {
 
     // 3. Hitung jumlah 'like' dan 'dislike'
 
-    const COUNT_REACTIONS = `SELECT COUNT(likes) as total_likes, COUNT(dislikes) as total_dislikes FROM reactions WHERE restaurantId=${database.escape(
-      restaurantId
-    )};`;
+    // const COUNT_REACTIONS = `SELECT COUNT(likes) as total_likes, COUNT(dislikes) as total_dislikes FROM reactions WHERE restaurantId=${database.escape(
+    //   restaurantId
+    // )};`;
+
+    const COUNT_REACTIONS = ` SELECT
+    sum(case when likes = true then 1 else 0 end) as total_likes,
+    sum(case when dislikes = true then 1 else 0 end) as total_dislikes
+  FROM reactions
+  WHERE restaurantId=${database.escape(restaurantId)};`;
 
     const [REACTIONS] = await database.execute(COUNT_REACTIONS);
 
@@ -262,9 +280,13 @@ module.exports.counter = async (req, res) => {
       restaurantId
     )};`;
 
+    let total_likes = +REACTIONS[0].total_likes;
+    let total_dislikes = +REACTIONS[0].total_dislikes;
+
     const [REVIEWS] = await database.execute(COUNT_REVIEWS);
 
-    let result = Object.assign({}, REACTIONS[0], REVIEWS[0]);
+    // let result = Object.assign({}, REACTIONS[0], REVIEWS[0]);
+    let result = { total_likes, total_dislikes, ...REVIEWS[0] };
 
     const response = new createResponse(
       httpStatus.OK,
