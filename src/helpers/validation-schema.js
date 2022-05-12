@@ -22,7 +22,7 @@ module.exports.patchUserSchema = Joi.object({
 });
 
 module.exports.loginUserSchema = Joi.object({
-  credential: Joi.string().min(3).max(20).required(),
+  credential: Joi.string().min(3).max(30).required(),
   password: Joi.string().min(6).max(13).required(),
   // password : Joi.string().min(6).max(13).pattern(/[!@#$%&*_!]/).required()
 });

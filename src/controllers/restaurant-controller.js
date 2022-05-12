@@ -47,9 +47,23 @@ const fs = require("fs");
 
 module.exports.getRestaurants = async (req, res) => {
   const page = req.query.page || 1;
+  const userId = req.query.userId;
   const limit = 6;
   const offset = (page - 1) * limit;
   try {
+    const CHECK_VERIFIED_USER = `SELECT isVerified,userId FROM users WHERE userId = ${database.escape(
+      userId
+    )}`;
+    const [VERIFIED_USER] = await database.execute(CHECK_VERIFIED_USER);
+
+    // if (VERIFIED_USER[0].isVerified == 0) {
+    //   throw new createError(
+    //     httpStatus.Bad_Request,
+    //     "Please verify your account",
+    //     "You have to verify your account to perform this action."
+    //   );
+    // }
+
     const GET_RESTAURANTS = `
     SELECT 
       r.restaurantId, 
@@ -79,17 +93,21 @@ module.exports.getRestaurants = async (req, res) => {
     SELECT COUNT(DISTINCT(restaurantId)) as totalRestaurants FROM restaurants;`;
     const [RESTAURANTS_AMOUNT] = await database.execute(COUNT_RESTAURANTS);
 
-    console.log(RESTAURANTS);
-    console.log(RESTAURANTS_AMOUNT);
+    // console.log(RESTAURANTS);
+    // console.log(VERIFIED_USER);
+
+    // console.log(RESTAURANTS_AMOUNT);
 
     // let result = Object.assign({}, o1, o2, o3);
+    const result = RESTAURANTS_AMOUNT.concat(VERIFIED_USER);
+    // console.log(result);
 
     const response = new createResponse(
       httpStatus.OK,
       "Restaurant data fetched",
       "Restaurant data fetched successfully!",
       RESTAURANTS,
-      RESTAURANTS_AMOUNT
+      result
     );
 
     res.status(response.status).send(response);
@@ -133,10 +151,11 @@ module.exports.getRestaurantById = async (req, res) => {
 
     // validate
     if (!RESTAURANT.length) {
-      const err = new Error("Error");
-      err.statusCode = 500;
-      err.message = "Restaurant is not found";
-      throw err;
+      throw new createError(
+        httpStatus.Internal_Server_Error,
+        "There isn't any restaurant yet",
+        "Restaurant is not found."
+      );
     }
 
     // create response
@@ -290,6 +309,20 @@ module.exports.editRestaurant = async (req, res) => {
   const body = req.body;
   console.log(body);
   console.log(restaurantId, body);
+
+  const location = req.body.location;
+
+  const geoData = await geocoder
+    .forwardGeocode({
+      query: location,
+      limit: 1,
+    })
+    .send();
+
+  let lat = geoData.body.features[0].geometry.coordinates[1];
+  let long = geoData.body.features[0].geometry.coordinates[0];
+  console.log(lat);
+  console.log(long);
   try {
     // 1. Check data apakah data user ada di dalam database
     const FIND_RESTAURANT = `SELECT * FROM restaurants WHERE restaurantId = ${database.escape(
@@ -362,6 +395,14 @@ module.exports.editRestaurant = async (req, res) => {
     console.log(EDIT_RESTAURANT);
     const [EDITED_RESTAURANT] = await database.execute(EDIT_RESTAURANT);
     console.log(EDITED_RESTAURANT[0]);
+
+    const EDIT_LOCATION = `UPDATE restaurants SET coordinate = st_geomfromtext('POINT(${database.escape(
+      lat
+    )} ${database.escape(long)})') WHERE restaurantId = ${database.escape(
+      restaurantId
+    )};`;
+
+    const [LOCATION] = await database.execute(EDIT_LOCATION);
 
     const FIND_UPDATED_RESTAURANT = `SELECT * FROM restaurants WHERE restaurantId = ${database.escape(
       restaurantId
