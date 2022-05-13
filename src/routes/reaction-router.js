@@ -4,9 +4,14 @@ const route = express.Router();
 
 route.post("/like", reaction_controller.like);
 route.post("/dislike", reaction_controller.dislike);
+route.post("/seeding", reaction_controller.seedingReviews);
 route.get("/counter/:restaurantId", reaction_controller.counter);
 route.post("/add-review", reaction_controller.addReview);
 route.get("/:restaurantId/get-reviews", reaction_controller.getReviews);
+route.get(
+  "/:restaurantId/get-reviews-paginated",
+  reaction_controller.getReviewsPaginated
+);
 route.get(
   "/:restaurantId/get-reactions/:userId",
   reaction_controller.getReactionById

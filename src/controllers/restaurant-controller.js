@@ -8,42 +8,7 @@ const mapBoxToken = process.env.MAPBOX_TOKEN;
 const geocoder = mbxGeocoding({ accessToken: mapBoxToken });
 const { uploader } = require("../helpers/uploader");
 const fs = require("fs");
-
-// module.exports.getStudents = async (req, res) => {
-//   // capture all request query params
-//   const limit = Number(req.query._limit) || 5
-//   const page = Number(req.query._page) || 1
-//   const offset = (page - 1) * limit
-//   const sort = req.query._sort || 'id'
-//   const order = req.query._order || 'ASC'
-
-//   // define query
-//   const GET_STUDENTS = `
-//       SELECT st.id, st.studentId, st.name, st.email, pg.program, ct.city
-//       FROM students AS st
-//       JOIN program AS pg ON pg.id = st.programId
-//       JOIN city AS ct ON ct.id = st.cityId
-//       ORDER BY ${'st.' + sort} ${order}
-//       LIMIT ${database.escape(offset)}, ${database.escape(limit)};
-//   `
-//   const GET_TOTAL = `SELECT COUNT(*) AS total FROM students;`
-
-//   // execute query
-//   try {
-//       const [ STUDENTS ] = await database.execute(GET_STUDENTS)
-//       const [ TOTAL ] = await database.execute(GET_TOTAL)
-
-//       const respond = new createRespond(http_status.OK, 'get', true, TOTAL[0].total, limit, STUDENTS)
-//       res.status(respond.status).send(respond)
-//   } catch (error) {
-//       const isTrusted = error instanceof createError
-//       if (!isTrusted) {
-//           error = new createError(http_status.INTERNAL_SERVICE_ERROR, error.sqlMessage)
-//           console.log(error)
-//       }
-//       res.status(error.status).send(error)
-//   }
-// }
+const { addRestaurantSchema } = require("../helpers/validation-schema");
 
 module.exports.getRestaurants = async (req, res) => {
   const page = req.query.page || 1;
@@ -64,28 +29,58 @@ module.exports.getRestaurants = async (req, res) => {
     //   );
     // }
 
+    // const GET_RESTAURANTS = `
+    // SELECT
+    //   r.restaurantId,
+    //   r.userId,
+    //   r.name,
+    //   r.location,
+    //   r.description,
+    //   r.price,
+    //   date_format(r.createdAt, '%M %e, %Y') as createdDate,
+    //   u.username,
+    //   u.imageUrl as userImageUrl,
+    //   ri.imageUrl as restaurantImageUrl,
+    //   COUNT(DISTINCT(re.likes)) as totalLikes,
+    //   COUNT(DISTINCT(re.dislikes)) as totalDislikes,
+    //   COUNT(DISTINCT(rev.reviewTitle)) as totalReviews
+    // FROM restaurants r
+    // LEFT JOIN users u ON r.userId = u.userId
+    // LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+    // LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+    // LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+    // GROUP BY r.restaurantId
+    // ORDER BY r.createdAt
+    // LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const GET_RESTAURANTS = `
     SELECT 
-      r.restaurantId, 
-      r.userId,
-      r.name, 
-      r.location,
-      r.description, 
-      r.price, 
-      date_format(r.createdAt, '%M %e, %Y') as createdDate,
-      u.username, 
-      u.imageUrl as userImageUrl, 
-      ri.imageUrl as restaurantImageUrl, 
-      COUNT(DISTINCT(re.likes)) as totalLikes, 
-      COUNT(DISTINCT(re.dislikes)) as totalDislikes, 
-      COUNT(DISTINCT(rev.reviewTitle)) as totalReviews 
-    FROM restaurants r
-    LEFT JOIN users u ON r.userId = u.userId
-    LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
-    LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
-    LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
-    GROUP BY r.restaurantId
-    ORDER BY r.createdAt
+    r.restaurantId, 
+    r.userId,
+    r.name, 
+    r.location,
+    r.description, 
+    r.price, 
+    date_format(r.createdAt, '%M %e, %Y') as createdDate,
+  u.username, 
+  u.imageUrl as userImageUrl, 
+    ri.imageUrl as restaurantImageUrl, 
+    sum(case when re.likes = true then 1 else 0 end) as totalLikes,
+    sum(case when re.dislikes = true then 1 else 0 end) as totalDislikes,
+    rev.total_reviews as totalReviews 
+  FROM restaurants r
+LEFT JOIN users u ON r.userId = u.userId
+  INNER JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+  INNER JOIN (
+  SELECT restaurantId, MIN(id) maxId
+      FROM restaurant_images
+      GROUP BY restaurantId
+) b ON ri.restaurantId = b.restaurantId AND ri.id = b.maxId
+  LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+  -- LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+  LEFT JOIN (SELECT restaurantId, COUNT(reviewTitle) as total_reviews 
+    FROM reviews GROUP BY restaurantId) rev ON r.restaurantId = rev.restaurantId
+  GROUP BY r.restaurantId
+  ORDER BY r.createdAt
     LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const [RESTAURANTS] = await database.execute(GET_RESTAURANTS);
 
@@ -128,7 +123,7 @@ module.exports.getRestaurants = async (req, res) => {
 
 module.exports.getRestaurantById = async (req, res) => {
   const restaurantId = req.params.restaurantId;
-  console.log(restaurantId);
+  // console.log(restaurantId);
 
   try {
     const GET_RESTAURANT_BY_ID = `
@@ -184,7 +179,7 @@ module.exports.getRestaurantById = async (req, res) => {
 };
 
 module.exports.addRestaurant = (req, res) => {
-  console.log("masuk");
+  // console.log("masuk");
   let newRestaurant;
   let path = "/restaurant-images";
 
@@ -208,7 +203,7 @@ module.exports.addRestaurant = (req, res) => {
         );
       }
 
-      console.log("lewat");
+      // console.log("lewat");
 
       let data = JSON.parse(req.body.data);
       let { userId, name, location, type, price, description } = data;
@@ -235,6 +230,21 @@ module.exports.addRestaurant = (req, res) => {
       let long = geoData.body.features[0].geometry.coordinates[0];
       console.log(lat);
       console.log(long);
+
+      // const { error } = addRestaurantSchema.validate({
+      //   name,
+      //   location,
+      //   type,
+      //   price,
+      //   description,
+      // });
+      // if (error) {
+      //   throw new createError(
+      //     httpStatus.Bad_Request,
+      //     "Add restaurant failed",
+      //     error.details[0].message
+      //   );
+      // }
 
       const INSERT_RESTO = `INSERT INTO restaurants (userId, name, location, type, description, price, coordinate) VALUES(${database.escape(
         userId
@@ -504,30 +514,63 @@ module.exports.getMyRestaurants = async (req, res) => {
       );
     }
 
+    // const GET_MY_RESTAURANTS = `
+    //   SELECT
+    //     r.restaurantId,
+    //     r.userId,
+    //     r.name,
+    //     r.location,
+    //     r.description,
+    //     r.price,
+    //     date_format(r.createdAt, '%M %e, %Y') as createdDate,
+    //     u.username,
+    //     u.imageUrl as userImageUrl,
+    //     ri.imageUrl as restaurantImageUrl,
+    //     COUNT(DISTINCT(re.likes)) as totalLikes,
+    //     COUNT(DISTINCT(re.dislikes)) as totalDislikes,
+    //     COUNT(DISTINCT(rev.reviewTitle)) as totalReviews
+    //   FROM restaurants r
+    //   LEFT JOIN users u ON r.userId = u.userId
+    //   LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+    //   LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+    //   LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+    //   WHERE r.userId = ${database.escape(userId)}
+    //   GROUP BY r.restaurantId
+    //   ORDER BY r.createdAt
+    //   LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const GET_MY_RESTAURANTS = `
-      SELECT 
-        r.restaurantId, 
-        r.userId,
-        r.name, 
-        r.location,
-        r.description, 
-        r.price, 
-        date_format(r.createdAt, '%M %e, %Y') as createdDate,
-        u.username, 
-        u.imageUrl as userImageUrl, 
-        ri.imageUrl as restaurantImageUrl, 
-        COUNT(DISTINCT(re.likes)) as totalLikes, 
-        COUNT(DISTINCT(re.dislikes)) as totalDislikes, 
-        COUNT(DISTINCT(rev.reviewTitle)) as totalReviews 
-      FROM restaurants r
-      LEFT JOIN users u ON r.userId = u.userId
-      LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
-      LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
-      LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
-      WHERE r.userId = ${database.escape(userId)}
-      GROUP BY r.restaurantId
-      ORDER BY r.createdAt
-      LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
+    SELECT 
+    r.restaurantId, 
+    r.userId,
+    r.name, 
+    r.location,
+    r.description, 
+    r.price, 
+    date_format(r.createdAt, '%M %e, %Y') as createdDate,
+  u.username, 
+  u.imageUrl as userImageUrl, 
+    ri.imageUrl as restaurantImageUrl, 
+    sum(case when re.likes = true then 1 else 0 end) as totalLikes,
+    sum(case when re.dislikes = true then 1 else 0 end) as totalDislikes,
+    rev.total_reviews as totalReviews 
+  FROM restaurants r
+LEFT JOIN users u ON r.userId = u.userId
+  INNER JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
+  INNER JOIN (
+  SELECT restaurantId, MIN(id) maxId
+      FROM restaurant_images
+      GROUP BY restaurantId
+) b ON ri.restaurantId = b.restaurantId AND ri.id = b.maxId
+  LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
+  -- LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
+  LEFT JOIN (SELECT restaurantId, COUNT(reviewTitle) as total_reviews 
+    FROM reviews GROUP BY restaurantId) rev ON r.restaurantId = rev.restaurantId
+    WHERE r.userId = ${database.escape(userId)}
+    GROUP BY r.restaurantId
+    ORDER BY r.createdAt
+
+    LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
+
     const [MY_RESTAURANTS] = await database.execute(GET_MY_RESTAURANTS);
 
     const COUNT_MY_RESTAURANTS = `

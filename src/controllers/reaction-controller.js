@@ -4,6 +4,8 @@ const createError = require("../helpers/createError");
 const createResponse = require("../helpers/createResponse");
 const httpStatus = require("../helpers/httpStatusCode");
 
+const { addReviewSchema } = require("../helpers/validation-schema");
+
 module.exports.like = async (req, res) => {
   let { restaurantId, userId } = req.body;
 
@@ -200,7 +202,7 @@ module.exports.dislike = async (req, res) => {
       else if (REACTION[0].dislikes) {
         const REMOVE_DISLIKE = `DELETE FROM reactions WHERE restaurantId=${database.escape(
           restaurantId
-        )} AND userId=${database.escape(userId)} AND dislikes=true`;
+        )} AND userId=${database.escape(userId)} AND dislikes=true;`;
 
         const [UPDATE_DISLIKE] = await database.execute(REMOVE_DISLIKE);
 
@@ -346,6 +348,21 @@ module.exports.addReview = async (req, res) => {
       );
     }
 
+    const { error } = addReviewSchema.validate({
+      restaurantId,
+      userId,
+      reviewTitle,
+      reviewDescription,
+    });
+    if (error) {
+      console.log(error.details[0].message);
+      throw new createError(
+        httpStatus.Bad_Request,
+        "Add review failed",
+        error.details[0].message
+      );
+    }
+
     const INSERT_NEW_REVIEW = `INSERT INTO reviews (restaurantId, userId, reviewTitle, reviewDescription) SELECT * FROM (SELECT ${database.escape(
       restaurantId
     )}, ${database.escape(userId)} ,${database.escape(
@@ -451,6 +468,82 @@ module.exports.getReviews = async (req, res) => {
   }
 };
 
+module.exports.getReviewsPaginated = async (req, res) => {
+  const restaurantId = req.params.restaurantId;
+  const page = req.query.page || 1;
+  const userId = req.query.userId;
+  const limit = 5;
+  const offset = (page - 1) * limit;
+  const nextOffset = page * limit;
+  try {
+    const GET_REVIEWS = `SELECT * FROM (
+      SELECT 
+          u.userId as userId, 
+          u.username as username,
+          u.fullname as fullname,
+          u.imageUrl as imageUrl,
+          r.restaurantId as restaurantId,
+          r.reviewTitle as reviewTitle,
+          r.reviewDescription as reviewDescription,
+          date_format(r.createdAt, '%M %e, %Y') as createdDate,
+          r.createdAt as createdAt
+      FROM
+          users u
+      INNER JOIN reviews r ON u.userId = r.userId
+      WHERE restaurantId=${database.escape(restaurantId)}
+      ) AS tmp
+      LEFT JOIN reactions re ON tmp.userId = re.userId AND tmp.restaurantId = re.restaurantId
+      ORDER BY r.createdAt DESC
+      LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
+
+    const [REVIEWS] = await database.execute(GET_REVIEWS);
+
+    const NEXT_REVIEWS = `SELECT * FROM (
+      SELECT 
+          u.userId as userId, 
+          u.username as username,
+          u.fullname as fullname,
+          u.imageUrl as imageUrl,
+          r.restaurantId as restaurantId,
+          r.reviewTitle as reviewTitle,
+          r.reviewDescription as reviewDescription,
+          date_format(r.createdAt, '%M %e, %Y') as createdDate,
+          r.createdAt as createdAt
+      FROM
+          users u
+      INNER JOIN reviews r ON u.userId = r.userId
+      WHERE restaurantId=${database.escape(restaurantId)}
+      ) AS tmp
+      LEFT JOIN reactions re ON tmp.userId = re.userId AND tmp.restaurantId = re.restaurantId
+      ORDER BY r.createdAt DESC
+      LIMIT ${database.escape(nextOffset)}, ${database.escape(limit)};`;
+
+    const [NEXT] = await database.execute(NEXT_REVIEWS);
+
+    const response = new createResponse(
+      httpStatus.OK,
+      "Restaurant data fetched",
+      "Restaurant data fetched successfully!",
+      REVIEWS,
+      NEXT
+    );
+
+    res.status(response.status).send(response);
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
+  }
+};
+
 module.exports.getReactionById = async (req, res) => {
   const restaurantId = req.params.restaurantId;
   const userId = req.params.userId;
@@ -468,6 +561,86 @@ module.exports.getReactionById = async (req, res) => {
       "Restaurant data fetched",
       "Restaurant data fetched successfully!",
       REACTIONS[0],
+      ""
+    );
+
+    res.status(response.status).send(response);
+  } catch (err) {
+    console.log("error : ", err);
+    const isTrusted = err instanceof createError;
+    if (!isTrusted) {
+      err = new createError(
+        httpStatus.Internal_Server_Error,
+        "SQL Script Error",
+        err.sqlMessage
+      );
+      console.log(err);
+    }
+    res.status(err.status).send(err);
+  }
+};
+
+module.exports.seedingReviews = async (req, res) => {
+  let restaurantId = req.body.restaurantId;
+  var reviewTitles = [
+    "Restoran ini adalah lelucon",
+    "Saya tidak akan pernah datang lagi",
+    "Pelayanannya sangat hebat",
+    "Makanan top, harga masuk akal",
+    "Tidak buruk, namun juga tidak memuaskan",
+  ];
+
+  let reviewDescriptions = [
+    "Seseorang tidak dapat berpikir dengan baik, mencintai dengan baik, tidur nyenyak, jika seseorang tidak makan dengan baik.",
+    "Salah satu hal terindah dalam hidup adalah cara kita harus secara teratur menghentikan apa pun yang sedang kita lakukan dan mencurahkan perhatian kita untuk makan.",
+    "Makanan adalah segalanya bagi kita. Itu merupakan perpanjangan dari perasaan nasionalis, perasaan etnis, sejarah pribadi Anda, provinsi Anda, wilayah Anda, suku Anda, nenek Anda. Itu tidak dapat dipisahkan dari yang sejak awal.",
+    "Saya bukan juru masak yang hebat, saya bukan seniman hebat, tapi saya suka seni, dan saya suka makanan, jadi saya adalah penjelajah yang sempurna.",
+    "Sangat menyenangkan berkumpul dan makan enak setidaknya sekali sehari. Itulah kehidupan manusia - menikmati sesuatu.",
+    "Makanan, pada akhirnya, dalam tradisi kita sendiri, adalah sesuatu yang suci. Ini bukan tentang nutrisi dan kalori. Ini tentang berbagi. Ini tentang kejujuran. Ini tentang identitas.",
+  ];
+
+  var userId = [
+    "64248E31-FD26-794E-14AC-B2C9BA2AEDCC",
+    "3B526B9E-6962-1136-5E55-242BB854EE55",
+    "C81D7B48-B68B-045C-5162-226049A1C145",
+    "29E2A575-F53E-2E22-7FDE-C3625B302B4A",
+    "D2333756-A64F-9A8B-A22F-251329472E13",
+    "E4C990C6-8F16-6C7A-4CE3-B483BAF02C52",
+    "47A79205-2912-EE3E-603B-1A6159E485E9",
+    "B48D665E-6491-5EF6-CD57-2E8299259655",
+    "2774D054-F36A-72CB-1B4E-15F9CE62792E",
+    "E5E410C9-65C4-C79D-9E36-DA6ADBEE8446",
+    "ECEA878F-B879-5D24-4DD6-C654BE755CBE",
+    "ECEF77D1-7BB1-31B7-7B6B-7F2D24A6B6DE",
+    "ADE47EC8-F513-F94B-8E86-95DEB378CCE9",
+    "E45BB927-7CF8-ACEB-DD2B-BFA3EEAC1CE1",
+  ];
+
+  try {
+    let query = "";
+
+    for (let i = 0; i < userId.length; i++) {
+      query = `('${restaurantId}', '${userId[i]}','${
+        reviewTitles[Math.floor(Math.random() * 5)]
+      }', '${reviewDescriptions[Math.floor(Math.random() * 6)]}'), `;
+
+      console.log(query);
+
+      const INSERT_REVIEWS =
+        `INSERT INTO reviews (restaurantId, userId, reviewTitle, reviewDescription) VALUES ` +
+        query.slice(0, -2) +
+        ";";
+
+      console.log(INSERT_REVIEWS);
+      const [REVIEWS] = await database.execute(INSERT_REVIEWS);
+    }
+
+    const response = new createResponse(
+      httpStatus.OK,
+      "Add restaurant success",
+      "Your restaurant now can be seen by other users.",
+      // newRestaurant,
+      "",
       ""
     );
 
