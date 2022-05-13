@@ -62,10 +62,6 @@ module.exports.register = async (req, res) => {
   try {
     // 1. Validasi password apakah match dengan repeat password
     if (password != repeat_password) {
-      // const err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = "The password doesn't match";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -76,11 +72,6 @@ module.exports.register = async (req, res) => {
     // 2. Validasi req.body, apakah sesuai dengan schema Joi
     const { error } = registerUserSchema.validate(req.body);
     if (error) {
-      // const err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = error.details[0].message;
-      // console.log(error.details);
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -92,12 +83,6 @@ module.exports.register = async (req, res) => {
     const CHECK_USER = `SELECT id FROM users WHERE username = ? OR email = ?`;
     const [USER_DATA] = await database.execute(CHECK_USER, [username, email]);
     if (USER_DATA.length) {
-      // const err = new Error("Error");
-      // console.log(err);
-      // err.statusCode = 500;
-      // err.message = "Email or username already exists.";
-
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Register failed",
@@ -124,10 +109,8 @@ module.exports.register = async (req, res) => {
     )}, ${database.escape(hashedPassword)});
         `;
     const [INFO] = await database.execute(INSERT_USER);
-    // console.log(INFO);
 
     // 7. Generate Token
-    // console.log("generate token");
     const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
     const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [uid]);
     console.log("USER_BY_ID: ", USER_BY_ID[0]);
@@ -135,9 +118,6 @@ module.exports.register = async (req, res) => {
     //bahan token
     let materialToken = USER_BY_ID[0].userId;
     let version = USER_BY_ID[0].version;
-    // let material2 = USER_BY_ID[0].username;
-    // let material3 = USER_BY_ID[0].email;
-    // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
     let token = createToken({ materialToken, version });
@@ -162,23 +142,12 @@ module.exports.register = async (req, res) => {
 
     transporter.sendMail(mail, (errMail, resMail) => {
       if (errMail) {
-        // console.log(errMail);
-        // res.status(500).send({
-        //   message: "Registration failed!",
-        //   success: false,
-        //   err: errMail,
-        // });
         throw new createError(
           httpStatus.Bad_Request,
           "Register failed",
           errMail
         );
       }
-      // res.status(200).send({
-      //   message:
-      //     "Registration success, check your email for account verification",
-      //   success: true,
-      // });
 
       const response = new createResponse(
         httpStatus.OK,
@@ -190,8 +159,6 @@ module.exports.register = async (req, res) => {
 
       res.status(response.status).send(response);
     });
-
-    // res.status(200).send("<h1>List of users</h1>");
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;
@@ -220,7 +187,6 @@ module.exports.sendEmailVerification = async (req, res) => {
     console.log(UPDATE_USER_VERSION);
     const [UPDATED_USER] = await database.execute(UPDATE_USER_VERSION);
     // 1. Generate Token
-    // console.log("generate token");
     const GET_USER_BY_ID = `SELECT * FROM users WHERE userId = ?;`;
     const [USER_BY_ID] = await database.execute(GET_USER_BY_ID, [userId]);
     console.log("USER_BY_ID: ", USER_BY_ID[0]);
@@ -228,8 +194,6 @@ module.exports.sendEmailVerification = async (req, res) => {
     //bahan token
     let materialToken = USER_BY_ID[0].userId;
     let version = USER_BY_ID[0].version;
-    // let material3 = USER_BY_ID[0].email;
-    // let material4 = USER_BY_ID[0].isVerified;
 
     //create token
     let token = createToken({ materialToken, version });
@@ -256,23 +220,12 @@ module.exports.sendEmailVerification = async (req, res) => {
 
     transporter.sendMail(mail, (errMail, resMail) => {
       if (errMail) {
-        // console.log(errMail);
-        // res.status(500).send({
-        //   message: "Registration failed!",
-        //   success: false,
-        //   err: errMail,
-        // });
         throw new createError(
           httpStatus.Internal_Server_Error,
           "Operation Error",
           "Email verification is failed to send."
         );
       }
-      // res.status(200).send({
-      //   message:
-      //     "Registration success, check your email for account verification",
-      //   success: true,
-      // });
       const response = new createResponse(
         httpStatus.OK,
         "Email verification is sent",
@@ -283,8 +236,6 @@ module.exports.sendEmailVerification = async (req, res) => {
 
       res.status(response.status).send(response);
     });
-
-    // res.status(200).send("<h1>List of users</h1>");
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;
@@ -352,10 +303,6 @@ module.exports.login = async (req, res) => {
     // 1. Validasi credential dan password berdasarkan schema
     const { error } = loginUserSchema.validate(req.body);
     if (error) {
-      // err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = "Salah format input";
-      // throw err;
       console.log(error.details[0].message);
       throw new createError(
         httpStatus.Bad_Request,
@@ -374,10 +321,6 @@ module.exports.login = async (req, res) => {
     const [USER] = await database.execute(FIND_USER);
     console.log(USER);
     if (!USER.length) {
-      // err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = "Credential tidak ditemukan";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Log in failed",
@@ -389,10 +332,6 @@ module.exports.login = async (req, res) => {
     // 3. Jika user exist, validasi passwordnya
     const isValid = await bcrypt.compare(password, USER[0].password);
     if (!isValid) {
-      // err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = "Password salah";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Log in failed",
@@ -403,20 +342,10 @@ module.exports.login = async (req, res) => {
     //bahan token
     let materialToken = USER[0].userId;
     let version = USER[0].version;
-    // let material2 = USER[0].username;
-    // let material3 = USER[0].email;
-    // let material4 = USER[0].isVerified;
 
     //create token
     let token = createToken({ materialToken, version });
     console.log(token);
-
-    // if (material4 != 1) {
-    //   err = new Error("Error");
-    //   err.statusCode = 400;
-    //   err.message = "Your account is not verified!";
-    //   throw err;
-    // }
 
     console.log("account is verified");
     delete USER[0].password;
@@ -433,12 +362,6 @@ module.exports.login = async (req, res) => {
       .header("Auth-Token", `Bearer ${token}`)
       .status(response.status)
       .send(response);
-
-    // res.status(200).send({
-    //   dataLogin: USER[0],
-    //   token,
-    //   message: "Login success",
-    // });
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;
@@ -468,10 +391,6 @@ module.exports.edit = async (req, res) => {
     console.log(FIND_USER);
     const [USER] = await database.execute(FIND_USER);
     if (!USER.length) {
-      // err = new Error("Error sini");
-      // err.statusCode = 500;
-      // err.message = "Gada user bos";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Edit failed",
@@ -483,10 +402,6 @@ module.exports.edit = async (req, res) => {
     // 2. Check apakah body memiliki inputan
     const isEmpty = !Object.keys(body).length;
     if (isEmpty) {
-      // err = new Error("Error sana");
-      // err.statusCode = 500;
-      // err.message = "Gada body bos";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Edit failed",
@@ -497,10 +412,6 @@ module.exports.edit = async (req, res) => {
     // 3. Gunakan Joi untuk validasi data dari body
     const { error } = patchUserSchema.validate(body);
     if (error) {
-      // err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = error.message;
-      // throw err;
       console.log(error.details[0].message);
       throw new createError(
         httpStatus.Bad_Request,
@@ -516,12 +427,6 @@ module.exports.edit = async (req, res) => {
       userId,
     ]);
     if (USER_DATA.length) {
-      // const err = new Error("Error");
-      // console.log(err);
-      // err.statusCode = 500;
-      // err.message = "Username already exists.";
-
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Edit failed",
@@ -547,10 +452,6 @@ module.exports.edit = async (req, res) => {
     console.log(FIND_UPDATED_USER);
     const [UPDATED_USER] = await database.execute(FIND_UPDATED_USER);
 
-    // res.status(200).send({
-    //   dataEdit: UPDATED_USER[0],
-    //   message: "Edit success",
-    // });
     const response = new createResponse(
       httpStatus.OK,
       "Edit profile success",
@@ -608,9 +509,6 @@ module.exports.uploadImage = (req, res) => {
           // res.status(500).send(err);
           throw new createError(httpStatus.Bad_Request, "Upload failed", err);
         }
-        // res
-        //   .status(200)
-        //   .send({ message: "Upload file success!", imageUrl: filepath });
         const response = new createResponse(
           httpStatus.OK,
           "Edit profile success",
@@ -664,11 +562,6 @@ module.exports.resetPasswordRequest = async (req, res) => {
     const { error } = resetPasswordUserSchema.validate(req.body);
     console.log("masuk joi");
     if (error) {
-      // const err = new Error("Error");
-      // err.statusCode = 500;
-      // err.message = error.details[0].message;
-      // console.log(error.details);
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Log in failed",
@@ -685,12 +578,6 @@ module.exports.resetPasswordRequest = async (req, res) => {
     console.log(USER_BY_EMAIL);
 
     if (!USER_BY_EMAIL.length) {
-      // const err = new Error("Error");
-      // console.log(err);
-      // err.statusCode = 500;
-      // err.message = "Email didn't exist.";
-
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Reset password request failed",
@@ -715,19 +602,12 @@ module.exports.resetPasswordRequest = async (req, res) => {
     let materialToken = USER_BY_ID[0].userId;
     let version = USER_BY_ID[0].version;
 
-    // let material2 = USER_BY_EMAIL[0].username;
-    // let material3 = USER_BY_EMAIL[0].email;
-    // let material4 = USER_BY_EMAIL[0].isVerified;
-
     //create token
     let token = createToken({ materialToken, version });
     console.log(token);
     console.log(process.cwd());
 
     // 8. Kirim email verification dengan nodemailer
-    // const template = fs.readFileSync("./template.html", {
-    //   encoding: "utf8",
-    // });
 
     const __dirname = process.cwd();
     const template = fs.readFileSync(
@@ -749,21 +629,12 @@ module.exports.resetPasswordRequest = async (req, res) => {
     transporter.sendMail(mail, (errMail, resMail) => {
       if (errMail) {
         console.log(errMail);
-        // res.status(500).send({
-        //   message: "Reset password failed!",
-        //   success: false,
-        //   err: errMail,
-        // });
         throw new createError(
           httpStatus.Bad_Request,
           "Reset password request failed",
           errMail
         );
       }
-      // res.status(200).send({
-      //   message: "Please reset your password",
-      //   success: true,
-      // });\
 
       const response = new createResponse(
         httpStatus.OK,
@@ -775,8 +646,6 @@ module.exports.resetPasswordRequest = async (req, res) => {
 
       res.status(response.status).send(response);
     });
-
-    // res.status(200).send("<h1>List of users</h1>");
   } catch (err) {
     console.log("error : ", err);
     const isTrusted = err instanceof createError;

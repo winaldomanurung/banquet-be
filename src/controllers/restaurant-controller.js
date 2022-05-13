@@ -21,37 +21,6 @@ module.exports.getRestaurants = async (req, res) => {
     )}`;
     const [VERIFIED_USER] = await database.execute(CHECK_VERIFIED_USER);
 
-    // if (VERIFIED_USER[0].isVerified == 0) {
-    //   throw new createError(
-    //     httpStatus.Bad_Request,
-    //     "Please verify your account",
-    //     "You have to verify your account to perform this action."
-    //   );
-    // }
-
-    // const GET_RESTAURANTS = `
-    // SELECT
-    //   r.restaurantId,
-    //   r.userId,
-    //   r.name,
-    //   r.location,
-    //   r.description,
-    //   r.price,
-    //   date_format(r.createdAt, '%M %e, %Y') as createdDate,
-    //   u.username,
-    //   u.imageUrl as userImageUrl,
-    //   ri.imageUrl as restaurantImageUrl,
-    //   COUNT(DISTINCT(re.likes)) as totalLikes,
-    //   COUNT(DISTINCT(re.dislikes)) as totalDislikes,
-    //   COUNT(DISTINCT(rev.reviewTitle)) as totalReviews
-    // FROM restaurants r
-    // LEFT JOIN users u ON r.userId = u.userId
-    // LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
-    // LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
-    // LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
-    // GROUP BY r.restaurantId
-    // ORDER BY r.createdAt
-    // LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const GET_RESTAURANTS = `
     SELECT 
     r.restaurantId, 
@@ -88,15 +57,7 @@ LEFT JOIN users u ON r.userId = u.userId
     SELECT COUNT(DISTINCT(restaurantId)) as totalRestaurants FROM restaurants;`;
     const [RESTAURANTS_AMOUNT] = await database.execute(COUNT_RESTAURANTS);
 
-    // console.log(RESTAURANTS);
-    // console.log(VERIFIED_USER);
-
-    // console.log(RESTAURANTS_AMOUNT);
-
-    // let result = Object.assign({}, o1, o2, o3);
     const result = RESTAURANTS_AMOUNT.concat(VERIFIED_USER);
-    // console.log(result);
-
     const response = new createResponse(
       httpStatus.OK,
       "Restaurant data fetched",
@@ -179,17 +140,8 @@ module.exports.getRestaurantById = async (req, res) => {
 };
 
 module.exports.addRestaurant = (req, res) => {
-  // console.log("masuk");
   let newRestaurant;
   let path = "/restaurant-images";
-
-  // if (!req.files) {
-  //   throw new createError(
-  //     httpStatus.Internal_Server_Error,
-  //     "Upload failed",
-  //     "You have to provide atleast one image!"
-  //   );
-  // }
 
   const upload = uploader(path, "IMG").fields([{ name: "file" }]);
 
@@ -202,8 +154,6 @@ module.exports.addRestaurant = (req, res) => {
           "Add restaurant failed."
         );
       }
-
-      // console.log("lewat");
 
       let data = JSON.parse(req.body.data);
       let { userId, name, location, type, price, description } = data;
@@ -230,21 +180,6 @@ module.exports.addRestaurant = (req, res) => {
       let long = geoData.body.features[0].geometry.coordinates[0];
       console.log(lat);
       console.log(long);
-
-      // const { error } = addRestaurantSchema.validate({
-      //   name,
-      //   location,
-      //   type,
-      //   price,
-      //   description,
-      // });
-      // if (error) {
-      //   throw new createError(
-      //     httpStatus.Bad_Request,
-      //     "Add restaurant failed",
-      //     error.details[0].message
-      //   );
-      // }
 
       const INSERT_RESTO = `INSERT INTO restaurants (userId, name, location, type, description, price, coordinate) VALUES(${database.escape(
         userId
@@ -342,10 +277,6 @@ module.exports.editRestaurant = async (req, res) => {
     console.log(FIND_RESTAURANT);
     const [RESTAURANT] = await database.execute(FIND_RESTAURANT);
     if (!RESTAURANT.length) {
-      // err = new Error("Error sini");
-      // err.statusCode = 500;
-      // err.message = "Gada user bos";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Edit restaurant failed",
@@ -356,10 +287,6 @@ module.exports.editRestaurant = async (req, res) => {
     // 2. Check apakah body memiliki inputan
     const isEmpty = !Object.keys(body).length;
     if (isEmpty) {
-      // err = new Error("Error sana");
-      // err.statusCode = 500;
-      // err.message = "Gada body bos";
-      // throw err;
       throw new createError(
         httpStatus.Bad_Request,
         "Edit restaurant failed",
@@ -514,30 +441,6 @@ module.exports.getMyRestaurants = async (req, res) => {
       );
     }
 
-    // const GET_MY_RESTAURANTS = `
-    //   SELECT
-    //     r.restaurantId,
-    //     r.userId,
-    //     r.name,
-    //     r.location,
-    //     r.description,
-    //     r.price,
-    //     date_format(r.createdAt, '%M %e, %Y') as createdDate,
-    //     u.username,
-    //     u.imageUrl as userImageUrl,
-    //     ri.imageUrl as restaurantImageUrl,
-    //     COUNT(DISTINCT(re.likes)) as totalLikes,
-    //     COUNT(DISTINCT(re.dislikes)) as totalDislikes,
-    //     COUNT(DISTINCT(rev.reviewTitle)) as totalReviews
-    //   FROM restaurants r
-    //   LEFT JOIN users u ON r.userId = u.userId
-    //   LEFT JOIN restaurant_images ri ON r.restaurantId = ri.restaurantId
-    //   LEFT JOIN reactions re ON r.restaurantId=re.restaurantId
-    //   LEFT JOIN reviews rev ON r.restaurantId=rev.restaurantId
-    //   WHERE r.userId = ${database.escape(userId)}
-    //   GROUP BY r.restaurantId
-    //   ORDER BY r.createdAt
-    //   LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const GET_MY_RESTAURANTS = `
     SELECT 
     r.restaurantId, 
@@ -580,15 +483,6 @@ LEFT JOIN users u ON r.userId = u.userId
     const [MY_RESTAURANTS_AMOUNT] = await database.execute(
       COUNT_MY_RESTAURANTS
     );
-
-    // validate
-    // if (!MY_RESTAURANTS.length) {
-    //   throw new createError(
-    //     httpStatus.Bad_Request,
-    //     "Restaurant is not found!",
-    //     "You don't have any restaurant"
-    //   );
-    // }
 
     // create respond
     const response = new createResponse(

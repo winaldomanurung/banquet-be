@@ -23,6 +23,4 @@ router.post("/:userId/upload-img", user_controller.uploadImage);
 router.get("/:userId/get-img", user_controller.getImage);
 router.post("/reset-password-request", user_controller.resetPasswordRequest);
 
-// router.get("/:userId/logout", user_controller.logout);
-
 module.exports = router;

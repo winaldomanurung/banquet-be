@@ -265,15 +265,11 @@ module.exports.counter = async (req, res) => {
 
     // 3. Hitung jumlah 'like' dan 'dislike'
 
-    // const COUNT_REACTIONS = `SELECT COUNT(likes) as total_likes, COUNT(dislikes) as total_dislikes FROM reactions WHERE restaurantId=${database.escape(
-    //   restaurantId
-    // )};`;
-
     const COUNT_REACTIONS = ` SELECT
     sum(case when likes = true then 1 else 0 end) as total_likes,
     sum(case when dislikes = true then 1 else 0 end) as total_dislikes
-  FROM reactions
-  WHERE restaurantId=${database.escape(restaurantId)};`;
+    FROM reactions
+    WHERE restaurantId=${database.escape(restaurantId)};`;
 
     const [REACTIONS] = await database.execute(COUNT_REACTIONS);
 
