@@ -23,7 +23,7 @@ app.use(bearerToken());
 app.use(express.static("public"));
 
 // Database Connection
-// Untuk dev
+// // Untuk dev
 // const connection = require("./src/config");
 // connection.connect((error) => {
 //   if (error) {
