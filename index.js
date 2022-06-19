@@ -21,8 +21,21 @@ app.use(bearerToken());
 app.use(express.static("public"));
 
 // Database Connection
+// Untuk dev
+// const connection = require("./src/config");
+// connection.connect((error) => {
+//   if (error) {
+//     console.log("Database connection error: ", error);
+//   }
+
+//   console.log(
+//     `Database connection is established at ID: ${connection.threadId}`
+//   );
+// });
+
+// Untuk production
 const connection = require("./src/config");
-connection.connect((error) => {
+connection.getConnection((error) => {
   if (error) {
     console.log("Database connection error: ", error);
   }
