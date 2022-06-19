@@ -12,7 +12,9 @@ app.use(express.json({ extended: true }));
 // app.use(express.urlencoded());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    // origin: "http://localhost:3000",
+    origin: "https://banquet-restaurants.netlify.app",
+
     exposedHeaders: ["UID", "Auth-Token"],
   })
 );
