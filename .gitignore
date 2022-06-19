@@ -1,4 +1,4 @@
 node_modules
 .env
-public/images
-public/restaurant-images
+# public/images
+# public/restaurant-images
