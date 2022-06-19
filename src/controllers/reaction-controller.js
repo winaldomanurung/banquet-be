@@ -489,7 +489,7 @@ module.exports.getReviewsPaginated = async (req, res) => {
       WHERE restaurantId=${database.escape(restaurantId)}
       ) AS tmp
       LEFT JOIN reactions re ON tmp.userId = re.userId AND tmp.restaurantId = re.restaurantId
-      ORDER BY r.createdAt DESC
+      ORDER BY createdAt DESC
       LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
 
     const [REVIEWS] = await database.execute(GET_REVIEWS);
@@ -511,7 +511,7 @@ module.exports.getReviewsPaginated = async (req, res) => {
       WHERE restaurantId=${database.escape(restaurantId)}
       ) AS tmp
       LEFT JOIN reactions re ON tmp.userId = re.userId AND tmp.restaurantId = re.restaurantId
-      ORDER BY r.createdAt DESC
+      ORDER BY createdAt DESC
       LIMIT ${database.escape(nextOffset)}, ${database.escape(limit)};`;
 
     const [NEXT] = await database.execute(NEXT_REVIEWS);
