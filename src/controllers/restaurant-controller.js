@@ -49,7 +49,6 @@ LEFT JOIN users u ON r.userId = u.userId
   LEFT JOIN (SELECT restaurantId, COUNT(reviewTitle) as total_reviews 
     FROM reviews GROUP BY restaurantId) rev ON r.restaurantId = rev.restaurantId
   GROUP BY r.restaurantId
-  ORDER BY createdDate
     LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
     const [RESTAURANTS] = await database.execute(GET_RESTAURANTS);
 
@@ -470,8 +469,6 @@ LEFT JOIN users u ON r.userId = u.userId
     FROM reviews GROUP BY restaurantId) rev ON r.restaurantId = rev.restaurantId
     WHERE r.userId = ${database.escape(userId)}
     GROUP BY r.restaurantId
-    ORDER BY createdDate
-
     LIMIT ${database.escape(offset)}, ${database.escape(limit)};`;
 
     const [MY_RESTAURANTS] = await database.execute(GET_MY_RESTAURANTS);
