@@ -25,20 +25,8 @@ app.use(express.static("public"));
 
 // Database Connection
 // Untuk dev
-const connection = require("./src/config");
-connection.connect((error) => {
-  if (error) {
-    console.log("Database connection error: ", error);
-  }
-
-  console.log(
-    `Database connection is established at ID: ${connection.threadId}`
-  );
-});
-
-// Untuk production
 // const connection = require("./src/config");
-// connection.getConnection((error) => {
+// connection.connect((error) => {
 //   if (error) {
 //     console.log("Database connection error: ", error);
 //   }
@@ -47,6 +35,18 @@ connection.connect((error) => {
 //     `Database connection is established at ID: ${connection.threadId}`
 //   );
 // });
+
+// Untuk production
+const connection = require("./src/config");
+connection.getConnection((error) => {
+  if (error) {
+    console.log("Database connection error: ", error);
+  }
+
+  console.log(
+    `Database connection is established at ID: ${connection.threadId}`
+  );
+});
 
 // app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 
