@@ -18,6 +18,10 @@ const httpStatus = require("../helpers/httpStatusCode");
 const JWT = require("jsonwebtoken");
 const mustache = require("mustache");
 const path = require("path");
+const dotenv = require("dotenv");
+dotenv.config();
+
+const URL_CLIENT = process.env.URL_CLIENT;
 
 module.exports.getUsers = async (req, res) => {
   res.status(200).send("<h1>List of users</h1>");
@@ -136,7 +140,7 @@ module.exports.register = async (req, res) => {
       subject: "Banquet Account Verification",
       html: mustache.render(template, {
         username: USER_BY_ID[0].username,
-        link: `http://localhost:3000/authentication/${token}`,
+        link: `${URL_CLIENT}/authentication/${token}`,
       }),
     };
 
@@ -197,7 +201,7 @@ module.exports.sendEmailVerification = async (req, res) => {
 
     //create token
     let token = createToken({ materialToken, version });
-    console.log(token);
+    console.log(`${URL_CLIENT}/authentication/${token}`);
 
     // 2. Kirim email verification dengan nodemailer
     const __dirname = process.cwd();
@@ -212,7 +216,8 @@ module.exports.sendEmailVerification = async (req, res) => {
       subject: "Banquet Account Verification",
       html: mustache.render(template, {
         username: USER_BY_ID[0].username,
-        link: `http://localhost:3000/authentication/${token}`,
+        link: `${URL_CLIENT}/authentication/${token}`,
+        // link: `https://www.youtube.com/`,
       }),
     };
 
@@ -619,10 +624,10 @@ module.exports.resetPasswordRequest = async (req, res) => {
       from: "Banquet Admin <banquet.service2022@gmail.com>",
       to: `${email}`,
       subject: "Reset Password for Banquet Account",
-      // html: `<a href='http://localhost:3000/reset-password/${token}'>Click here to reset your Banquet Account password.</a>`,
+      // html: `<a href='${URL_CLIENT}/reset-password/${token}'>Click here to reset your Banquet Account password.</a>`,
       html: mustache.render(template, {
         username: USER_BY_ID[0].username,
-        link: `http://localhost:3000/reset-password/${token}`,
+        link: `${URL_CLIENT}/reset-password/${token}`,
       }),
     };
 

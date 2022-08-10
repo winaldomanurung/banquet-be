@@ -8,12 +8,13 @@ const app = express();
 
 const routers = require("./src/routes");
 
+const URL_CLIENT = process.env.URL_CLIENTL;
 app.use(express.json({ extended: true }));
 // app.use(express.urlencoded());
 app.use(
   cors({
-    // origin: "http://localhost:3000",
-    origin: "https://banquet-restaurants.netlify.app",
+    origin: `${URL_CLIENT}`,
+    // origin: "https://banquet-restaurants.netlify.app",
 
     exposedHeaders: ["UID", "Auth-Token"],
   })
@@ -23,21 +24,9 @@ app.use(bearerToken());
 app.use(express.static("public"));
 
 // Database Connection
-// // Untuk dev
-// const connection = require("./src/config");
-// connection.connect((error) => {
-//   if (error) {
-//     console.log("Database connection error: ", error);
-//   }
-
-//   console.log(
-//     `Database connection is established at ID: ${connection.threadId}`
-//   );
-// });
-
-// Untuk production
+// Untuk dev
 const connection = require("./src/config");
-connection.getConnection((error) => {
+connection.connect((error) => {
   if (error) {
     console.log("Database connection error: ", error);
   }
@@ -47,7 +36,19 @@ connection.getConnection((error) => {
   );
 });
 
-app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
+// Untuk production
+// const connection = require("./src/config");
+// connection.getConnection((error) => {
+//   if (error) {
+//     console.log("Database connection error: ", error);
+//   }
+
+//   console.log(
+//     `Database connection is established at ID: ${connection.threadId}`
+//   );
+// });
+
+// app.get("/", (req, res) => res.status(200).send("<h1>Welcome</h1>"));
 
 /* /////////////// */
 /* ///// USER /////*/
